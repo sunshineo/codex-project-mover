@@ -52,6 +52,8 @@ pub fn run(args: ApplyArgs) -> Result<()> {
             backup.manifest_path.display()
         );
     }
+    // Scan for new_str by passing it as the "old" argument — scan_codex_home finds exact
+    // matches of its second argument, so swapping old/new here finds occurrences of new_str.
     let new_references = scan_codex_home(&codex_home, &new_str, &old_str)?;
     if changed > 0 && new_references.old_reference_count() < changed {
         bail!(
