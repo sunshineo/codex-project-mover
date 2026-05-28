@@ -49,8 +49,27 @@ pub fn update_jsonl_file(path: &Path, old: &str, new: &str) -> Result<usize> {
         output.push('\n');
     }
 
+    // Leave files without a matching cwd untouched: rewriting one would reset its
+    // mtime, which Codex surfaces as the conversation's last-activity time.
+    if changed_count == 0 {
+        return Ok(0);
+    }
+
+    // Changing a cwd reference is metadata bookkeeping, not real conversation
+    // activity, so the original mtime is restored after the rewrite.
+    let original_mtime = fs::metadata(path)
+        .and_then(|meta| meta.modified())
+        .with_context(|| format!("read mtime of {}", path.display()))?;
+
     fs::write(path, output)
         .with_context(|| format!("write JSONL session file {}", path.display()))?;
+
+    fs::File::options()
+        .write(true)
+        .open(path)
+        .and_then(|file| file.set_modified(original_mtime))
+        .with_context(|| format!("restore mtime of {}", path.display()))?;
+
     Ok(changed_count)
 }
 
