@@ -3044,3 +3044,15 @@ git commit -m "ci: add macOS Rust checks"
 - Safety coverage: The plan never uses broad substring replacement in session history or global state, updates known SQLite columns only, backs up every changed metadata file before copying or editing metadata, verifies copied code before metadata changes, verifies no supported old-path references remain, verifies new-path references are present, and moves project folders to Trash instead of deleting them directly.
 - Placeholder scan: No task relies on unspecified future behavior. Each task names files, tests, commands, expected results, and concrete implementation interfaces.
 - Type consistency: Shared types are introduced in `src/model.rs`; scanner and updater tasks use the same `ReferenceMatch`, `SurfaceKind`, and `ScanReport` names; command tasks call the scanner/updater APIs defined earlier.
+
+## Execution Notes
+
+- Completed Tasks 1-18 on branch `implement-codex-project-mover`.
+- Implementation commit: `133be58` (`feat: implement Codex project mover`).
+- Files changed: Rust CLI sources under `src/`, integration/unit tests under `tests/`, `Cargo.toml`, `Cargo.lock`, `README.md`, `SPEC.md`, `.github/workflows/ci.yml`, `.gitignore`, and this plan.
+- Verification run after implementation:
+  - `cargo fmt --check`: PASS
+  - `cargo clippy --all-targets -- -D warnings`: PASS
+  - `cargo test`: PASS
+  - `cargo build --release`: PASS
+- Notable implementation adjustment: CLI integration tests set `CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD=1` so tests can exercise temp Codex homes while the real Codex app is open. The public CLI still has no `--force` flag.
