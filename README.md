@@ -14,6 +14,8 @@ codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/
 
 Close Codex before running commands. The tool exits if it sees Codex-related processes, and there is no force override.
 
+Because Codex must be fully closed during the move, you can't drive this tool from inside Codex itself. Run it from a plain terminal, or have a different AI coding assistant (such as Claude Code) run it for you.
+
 Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash.
 
 Relink-only mode is for folders already moved by the user. It requires the old path to be missing and the new path to exist.
