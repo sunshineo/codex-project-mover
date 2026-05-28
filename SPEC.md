@@ -134,6 +134,20 @@ Out of scope for v1:
 - Should rollback move the project folder back, or only restore Codex metadata by default?
 - Should the tool use a single backup directory under `~/.codex/codex-project-mover-backups` or a backup directory adjacent to the repo?
 
+## Resolved Decisions
+
+- Normal `apply` moves the project folder by default.
+- Normal `apply` requires the old folder to exist and the new path to not exist.
+- Relink-only mode requires the old folder to not exist and the new folder to exist.
+- New parent directories are created automatically.
+- Commands exit when Codex-related processes are running, excluding the mover process itself, and there is no force override.
+- The old folder is moved to macOS Trash after copy and metadata verification.
+- Backups are metadata backups under `~/.codex/codex-project-mover-backups/<id>` and include movement metadata for rollback cleanup.
+- Rollback restores metadata from backup and moves the tool-created new folder to Trash when applicable.
+- `.codex-global-state.json` updates JSON string values and JSON object keys exactly equal to the old path.
+- `config.toml` updates exact string values, exact `[projects."/path"]` table keys, and exact per-path open-target preference keys.
+- `verify` requires supported old-path references to be gone and supported new-path references to be present.
+
 ## Suggested Next Step
 
 Start the new Codex thread in this project and ask it to turn this spec into an implementation plan. The first implementation milestone should be a read-only scanner that reports all old-path references across supported Codex state surfaces, with tests using fixture files and temporary SQLite databases.

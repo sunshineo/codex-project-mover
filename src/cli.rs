@@ -1,0 +1,47 @@
+use std::path::PathBuf;
+
+use clap::{Args, Parser, Subcommand};
+
+#[derive(Debug, Parser)]
+#[command(name = "codex-project-mover")]
+#[command(about = "Move a Codex Desktop project and update local Codex metadata")]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    Plan(MoveArgs),
+    Apply(ApplyArgs),
+    Verify(MoveArgs),
+    Rollback(RollbackArgs),
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct MoveArgs {
+    #[arg(long)]
+    pub old: PathBuf,
+    #[arg(long)]
+    pub new: PathBuf,
+    #[arg(long)]
+    pub codex_home: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ApplyArgs {
+    #[arg(long)]
+    pub old: PathBuf,
+    #[arg(long)]
+    pub new: PathBuf,
+    #[arg(long)]
+    pub codex_home: Option<PathBuf>,
+    #[arg(long)]
+    pub relink_only: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct RollbackArgs {
+    #[arg(long)]
+    pub backup: PathBuf,
+}
