@@ -63,14 +63,23 @@ fn updates_only_matching_cwd_fields() {
 fn preserves_mtime_when_updating() {
     let temp = tempdir().unwrap();
     let file = temp.path().join("thread.jsonl");
-    fs::write(&file, r#"{"payload":{"cwd":"/old/project"}}"#.to_owned() + "\n").unwrap();
+    fs::write(
+        &file,
+        r#"{"payload":{"cwd":"/old/project"}}"#.to_owned() + "\n",
+    )
+    .unwrap();
     let original_mtime = stamp_mtime(&file);
 
     let count = update_jsonl_file(&file, "/old/project", "/new/project").unwrap();
 
     assert_eq!(count, 1);
-    assert!(fs::read_to_string(&file).unwrap().contains(r#""cwd":"/new/project""#));
-    assert_eq!(fs::metadata(&file).unwrap().modified().unwrap(), original_mtime);
+    assert!(fs::read_to_string(&file)
+        .unwrap()
+        .contains(r#""cwd":"/new/project""#));
+    assert_eq!(
+        fs::metadata(&file).unwrap().modified().unwrap(),
+        original_mtime
+    );
 }
 
 #[test]
@@ -88,5 +97,8 @@ fn leaves_files_without_matches_byte_identical() {
 
     assert_eq!(count, 0);
     assert_eq!(fs::read_to_string(&file).unwrap(), original);
-    assert_eq!(fs::metadata(&file).unwrap().modified().unwrap(), original_mtime);
+    assert_eq!(
+        fs::metadata(&file).unwrap().modified().unwrap(),
+        original_mtime
+    );
 }

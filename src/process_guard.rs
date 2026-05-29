@@ -157,9 +157,9 @@ fn collect_processes(system: &System) -> (Vec<ProcessInfo>, Option<PathBuf>) {
 }
 
 fn looks_like_env_var(token: &str) -> bool {
-    token
-        .split_once('=')
-        .is_some_and(|(key, _)| !key.is_empty() && key.chars().all(|c| c.is_ascii_uppercase() || c == '_'))
+    token.split_once('=').is_some_and(|(key, _)| {
+        !key.is_empty() && key.chars().all(|c| c.is_ascii_uppercase() || c == '_')
+    })
 }
 
 pub fn find_codex_processes(processes: &[ProcessInfo], current_pid: u32) -> Vec<ProcessInfo> {
