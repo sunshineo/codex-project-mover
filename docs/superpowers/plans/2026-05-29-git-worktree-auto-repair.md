@@ -36,6 +36,9 @@
 - 2026-05-29: Completed Task 2 Step 3; added `.git` inspection, `git worktree list --porcelain -z` command runner, and plan construction in `src/git_worktree.rs`.
 - 2026-05-29: Task 2 Step 4 evidence: `cargo test --test git_worktree` passed, 8 tests passed, 0 failed. Detection tests canonicalize temp repo paths before comparing because Git reports macOS temp worktrees under `/private/var` while `tempfile` returns `/var`.
 - 2026-05-29: Task 2 Step 5 commit evidence: `9b5d9598805c0e9cfffc401f273ddce21ed02f0a`; pre-commit verification `rustfmt --check src/git_worktree.rs tests/git_worktree.rs`, `git diff --check -- src/git_worktree.rs tests/git_worktree.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md`, and `cargo test --test git_worktree` passed.
+- 2026-05-29: Started Task 2 review follow-up to harden linked worktree detection, invalid `.git` handling, Git command diagnostics, and Git-backed tests.
+- 2026-05-29: Task 2 review follow-up red test evidence: `cargo test --test git_worktree` failed as expected for invalid `.git` returning `Ok(NotGit)` and `--separate-git-dir` under a `worktrees` path being misclassified as `LinkedWorktree`; 9 passed, 2 failed.
+- 2026-05-29: Task 2 review follow-up green evidence: hardened linked detection to require private gitdir `commondir`, invalid `.git` files now error with path context, Git command failures include command/cwd/status/stdout/stderr, Git-backed test helper disables global/system config, signing, hooks, and init templates; `cargo test --test git_worktree` passed, 11 tests passed, 0 failed.
 
 ---
 

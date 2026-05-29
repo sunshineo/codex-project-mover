@@ -148,6 +148,16 @@ fn git_available() -> bool {
 fn git(cwd: &Path, args: &[&str]) {
     let output = Command::new("git")
         .current_dir(cwd)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .args([
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "init.templateDir=",
+        ])
         .args(args)
         .output()
         .unwrap();
@@ -168,6 +178,38 @@ fn init_repo(path: &Path) {
     fs::write(path.join("README.md"), "hello\n").unwrap();
     git(path, &["add", "README.md"]);
     git(path, &["commit", "-m", "initial"]);
+}
+
+#[test]
+fn detects_non_git_directory_as_not_git() {
+    let temp = tempdir().unwrap();
+    let old = temp.path().join("plain");
+    let new = temp.path().join("moved/plain");
+    fs::create_dir_all(&old).unwrap();
+
+    let plan = build_plan_for_existing_project(&old, &new).unwrap();
+
+    assert_eq!(plan.kind, GitWorktreeKind::NotGit);
+    assert_eq!(plan.project_path, old);
+    assert_eq!(plan.new_project_path, new);
+    assert!(plan.entries.is_empty());
+    assert!(plan.path_moves.is_empty());
+}
+
+#[test]
+fn invalid_dotgit_file_returns_path_context_error() {
+    let temp = tempdir().unwrap();
+    let old = temp.path().join("repo");
+    let new = temp.path().join("moved/repo");
+    fs::create_dir_all(&old).unwrap();
+    let dotgit = old.join(".git");
+    fs::write(&dotgit, "not a gitdir pointer\n").unwrap();
+
+    let error = build_plan_for_existing_project(&old, &new).unwrap_err();
+    let message = error.to_string();
+
+    assert!(message.contains(dotgit.to_str().unwrap()));
+    assert!(message.contains("gitdir:"));
 }
 
 #[test]
@@ -214,9 +256,51 @@ fn detects_linked_worktree_root() {
 
     assert_eq!(plan.kind, GitWorktreeKind::LinkedWorktree);
     assert_eq!(plan.project_path, linked);
+    assert_eq!(plan.new_project_path, new);
     assert!(plan.entries.iter().any(|entry| entry.path == main));
     assert!(plan
         .entries
         .iter()
         .any(|entry| entry.path == plan.project_path));
+    assert!(plan
+        .path_moves
+        .iter()
+        .any(|path_move| path_move.old_path == plan.project_path
+            && path_move.new_path == plan.new_project_path));
+}
+
+#[test]
+fn separate_git_dir_under_worktrees_component_is_main_worktree() {
+    if !git_available() {
+        eprintln!(
+            "skipping separate_git_dir_under_worktrees_component_is_main_worktree because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let worktree = temp.path().join("repo");
+    let separate_git_dir = temp.path().join("worktrees/repo.git");
+    let new = temp.path().join("moved/repo");
+    fs::create_dir_all(&worktree).unwrap();
+    fs::create_dir_all(separate_git_dir.parent().unwrap()).unwrap();
+    git(
+        &worktree,
+        &[
+            "init",
+            "--separate-git-dir",
+            separate_git_dir.to_str().unwrap(),
+        ],
+    );
+    git(&worktree, &["config", "user.email", "test@example.com"]);
+    git(&worktree, &["config", "user.name", "Test User"]);
+    fs::write(worktree.join("README.md"), "hello\n").unwrap();
+    git(&worktree, &["add", "README.md"]);
+    git(&worktree, &["commit", "-m", "initial"]);
+    let worktree = fs::canonicalize(worktree).unwrap();
+
+    let plan = build_plan_for_existing_project(&worktree, &new).unwrap();
+
+    assert_eq!(plan.kind, GitWorktreeKind::MainWorktree);
+    assert_eq!(plan.project_path, worktree);
 }

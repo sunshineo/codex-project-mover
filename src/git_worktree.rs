@@ -1,10 +1,10 @@
 use std::{
     fs,
     path::{Component, Path, PathBuf},
-    process::Command,
+    process::{Command, Output},
 };
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GitWorktreeKind {
@@ -83,10 +83,7 @@ pub fn build_plan_for_existing_project(old: &Path, new: &Path) -> Result<GitWork
         }
         GitDotfile::File { gitdir } => {
             let entries = git_worktree_entries(old)?;
-            let kind = if gitdir
-                .components()
-                .any(|component| component.as_os_str() == "worktrees")
-            {
+            let kind = if is_linked_worktree_gitdir(&gitdir) {
                 GitWorktreeKind::LinkedWorktree
             } else {
                 GitWorktreeKind::MainWorktree
@@ -113,9 +110,18 @@ fn inspect_dotgit(project: &Path) -> Result<GitDotfile> {
 
     let contents = fs::read_to_string(&dotgit)?;
     let Some(raw_gitdir) = contents.trim().strip_prefix("gitdir:") else {
-        return Ok(GitDotfile::Missing);
+        bail!(
+            "invalid .git file at {}: expected `gitdir:` pointer",
+            dotgit.display()
+        );
     };
     let raw_gitdir = raw_gitdir.trim();
+    if raw_gitdir.is_empty() {
+        bail!(
+            "invalid .git file at {}: expected non-empty `gitdir:` pointer",
+            dotgit.display()
+        );
+    }
     let gitdir = if Path::new(raw_gitdir).is_absolute() {
         PathBuf::from(raw_gitdir)
     } else {
@@ -125,22 +131,42 @@ fn inspect_dotgit(project: &Path) -> Result<GitDotfile> {
     Ok(GitDotfile::File { gitdir })
 }
 
+fn is_linked_worktree_gitdir(gitdir: &Path) -> bool {
+    gitdir.join("commondir").is_file()
+}
+
 fn git_worktree_entries(cwd: &Path) -> Result<Vec<WorktreeEntry>> {
+    let output = run_git(cwd, &["worktree", "list", "--porcelain", "-z"])?;
+    parse_worktree_list(&output.stdout)
+}
+
+fn run_git(cwd: &Path, args: &[&str]) -> Result<Output> {
+    let command_label = git_command_label(args);
     let output = Command::new("git")
         .current_dir(cwd)
-        .args(["worktree", "list", "--porcelain", "-z"])
-        .output()?;
+        .args(args)
+        .output()
+        .with_context(|| format!("failed to spawn `{command_label}` in {}", cwd.display()))?;
 
     if !output.status.success() {
         bail!(
-            "git worktree list failed in {}\nstdout:\n{}\nstderr:\n{}",
+            "git command failed: `{}`\ncwd: {}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+            command_label,
             cwd.display(),
+            output.status,
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
     }
 
-    parse_worktree_list(&output.stdout)
+    Ok(output)
+}
+
+fn git_command_label(args: &[&str]) -> String {
+    std::iter::once("git")
+        .chain(args.iter().copied())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn parse_worktree_list(bytes: &[u8]) -> Result<Vec<WorktreeEntry>> {
