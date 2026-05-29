@@ -108,6 +108,8 @@
 - 2026-05-29: Started Task 8 Step 1; updated `README.md` with automatic Git worktree repair behavior for normal apply and relink-only.
 - 2026-05-29: Task 8 Step 2 evidence: `cargo fmt --check` passed; `cargo test` passed across all unit, integration, and doc tests.
 - 2026-05-29: Task 8 Step 3 evidence: `cargo run -- --help` passed and output listed `plan`, `apply`, `verify`, and `rollback`.
+- 2026-05-29: Task 8 Step 4 commit evidence: `7c24c58` (`docs: describe git worktree auto repair`).
+- 2026-05-29: Final verification evidence after commit: `git status --short` clean; `cargo fmt --check` passed; `cargo test` passed; `cargo run -- --help` passed.
 
 ---
 
@@ -1534,7 +1536,7 @@ cargo run -- --help
 
 Expected: PASS and output includes `plan`, `apply`, `verify`, and `rollback`.
 
-- [ ] **Step 4: Commit Task 8**
+- [x] **Step 4: Commit Task 8**
 
 Run:
 
@@ -1549,9 +1551,9 @@ Record the commit hash and test result in the Execution Log.
 
 ## Final Verification
 
-- [ ] Run `git status --short`.
+- [x] Run `git status --short`.
 - [x] Run `cargo fmt --check`.
 - [x] Run `cargo test`.
 - [x] Run `cargo run -- --help`.
 - [x] Update this plan's Execution Log with final verification commands and results.
-- [ ] Report changed files, commits, and any residual risk.
+- [x] Report changed files, commits, and any residual risk.
