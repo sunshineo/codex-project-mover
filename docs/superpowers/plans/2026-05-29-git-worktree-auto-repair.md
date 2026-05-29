@@ -29,6 +29,7 @@
 - 2026-05-29: Step 4 green test evidence: `cargo test --test git_worktree` passed, 2 tests passed, 0 failed.
 - 2026-05-29: Task 1 changed `src/git_worktree.rs`, `src/lib.rs`, `tests/git_worktree.rs`, and this plan file.
 - 2026-05-29: Task 1 commit evidence: `b03c85c7067fe71a4c92b2ffcc81744578742a3d`.
+- 2026-05-29: Task 1 review fix evidence: added comparison-only worktree path normalization and stricter `locked`/`prunable` parser matching; `cargo test --test git_worktree` passed, 6 tests passed, 0 failed.
 
 ---
 

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{bail, Result};
 
@@ -47,9 +47,11 @@ impl GitWorktreePlan {
     }
 
     pub fn repair_paths(&self) -> Vec<PathBuf> {
+        let project_path = normalize_path_for_compare(&self.project_path);
+
         self.path_moves
             .iter()
-            .filter(|path_move| path_move.old_path != self.project_path)
+            .filter(|path_move| normalize_path_for_compare(&path_move.old_path) != project_path)
             .map(|path_move| path_move.new_path.clone())
             .collect()
     }
@@ -89,10 +91,14 @@ pub fn parse_worktree_list(bytes: &[u8]) -> Result<Vec<WorktreeEntry>> {
                 entry.detached = true;
             } else if field == "bare" {
                 entry.bare = true;
-            } else if let Some(reason) = field.strip_prefix("locked") {
-                entry.locked = Some(reason.trim_start().to_string());
-            } else if let Some(reason) = field.strip_prefix("prunable") {
-                entry.prunable = Some(reason.trim_start().to_string());
+            } else if field == "locked" {
+                entry.locked = Some(String::new());
+            } else if let Some(reason) = field.strip_prefix("locked ") {
+                entry.locked = Some(reason.to_string());
+            } else if field == "prunable" {
+                entry.prunable = Some(String::new());
+            } else if let Some(reason) = field.strip_prefix("prunable ") {
+                entry.prunable = Some(reason.to_string());
             }
         } else {
             bail!("git worktree porcelain output field appeared before worktree path: {field}");
@@ -111,12 +117,14 @@ pub fn map_worktree_paths(
     old: &Path,
     new: &Path,
 ) -> Vec<WorktreePathMove> {
+    let old = normalize_path_for_compare(old);
+
     entries
         .iter()
         .filter_map(|entry| {
-            entry
-                .path
-                .strip_prefix(old)
+            let entry_path = normalize_path_for_compare(&entry.path);
+            entry_path
+                .strip_prefix(&old)
                 .ok()
                 .map(|relative| WorktreePathMove {
                     old_path: entry.path.clone(),
@@ -124,4 +132,25 @@ pub fn map_worktree_paths(
                 })
         })
         .collect()
+}
+
+fn normalize_path_for_compare(path: &Path) -> PathBuf {
+    let mut cleaned = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                cleaned.pop();
+            }
+            Component::RootDir | Component::Prefix(_) | Component::Normal(_) => {
+                cleaned.push(component.as_os_str());
+            }
+        }
+    }
+
+    match cleaned.strip_prefix("/private/var") {
+        Ok(relative) if relative.as_os_str().is_empty() => PathBuf::from("/var"),
+        Ok(relative) => PathBuf::from("/var").join(relative),
+        Err(_) => cleaned,
+    }
 }
