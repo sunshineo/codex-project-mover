@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 
 use crate::cli::MoveArgs;
+use crate::git_worktree::{build_plan_for_relink_only, verify_git_from_new_path, GitWorktreeKind};
 use crate::pathing::{codex_home_from_arg, normalize_project_path};
 use crate::process_guard::assert_no_codex_processes;
 use crate::scanner::scan_codex_home;
@@ -24,6 +25,12 @@ pub fn run(args: MoveArgs) -> Result<()> {
 
     if new_report.old_reference_count() == 0 {
         bail!("verification failed: no supported new-path references found");
+    }
+
+    let git_plan = build_plan_for_relink_only(&old, &new)?;
+    if git_plan.kind != GitWorktreeKind::NotGit {
+        verify_git_from_new_path(&old, &new)?;
+        println!("Git worktree verification passed");
     }
 
     println!(

@@ -364,3 +364,40 @@ fn apply_relink_only_repairs_manually_moved_linked_worktree() {
     assert!(session_contents.contains(new.to_str().unwrap()));
     assert!(!session_contents.contains(old.to_str().unwrap()));
 }
+
+#[test]
+fn verify_reports_git_validation_for_moved_repo() {
+    if !git_available() {
+        eprintln!(
+            "skipping verify_reports_git_validation_for_moved_repo because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let root = fs::canonicalize(temp.path()).unwrap();
+    let home = root.join(".codex");
+    let old = root.join("old-project");
+    let new = root.join("new-project");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    init_repo(&new);
+    fs::write(
+        home.join("sessions/thread.jsonl"),
+        format!(r#"{{"cwd":"{}"}}"#, new.display()),
+    )
+    .unwrap();
+
+    mover()
+        .args([
+            "verify",
+            "--old",
+            old.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(contains("Git worktree verification passed"));
+}

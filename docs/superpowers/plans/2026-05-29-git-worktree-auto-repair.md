@@ -95,6 +95,15 @@
 - 2026-05-29: Task 6 changed `src/git_worktree.rs`, `src/commands/apply.rs`, `tests/git_worktree_cli.rs`, and this plan file.
 - 2026-05-29: Task 6 verification evidence: `cargo test --test git_worktree_cli` passed, 5 tests passed, 0 failed; `cargo test --test git_worktree` passed, 19 tests passed, 0 failed; `cargo test --test cli apply_relink_only_updates_metadata_when_old_is_missing_and_new_exists` passed, 1 test passed, 0 failed; `cargo fmt --check` passed; `git diff --check -- src/git_worktree.rs src/commands/apply.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
 - 2026-05-29: Started Task 6 Step 5.
+- 2026-05-29: Started Task 7 Step 1.
+- 2026-05-29: Completed Task 7 Step 1; added verify Git validation CLI test in `tests/git_worktree_cli.rs`.
+- 2026-05-29: Task 7 Step 2 red test evidence: `cargo test --test git_worktree_cli verify_reports_git_validation_for_moved_repo` failed as expected because stdout did not contain `Git worktree verification passed`.
+- 2026-05-29: Started Task 7 Step 3.
+- 2026-05-29: Completed Task 7 Step 3; `verify` now runs relink-style Git verification when `new` is a Git checkout.
+- 2026-05-29: Task 7 Step 4 evidence: `cargo test --test git_worktree_cli verify_reports_git_validation_for_moved_repo` passed, 1 test passed, 0 failed.
+- 2026-05-29: Task 7 changed `src/commands/verify.rs`, `tests/git_worktree_cli.rs`, and this plan file.
+- 2026-05-29: Task 7 verification evidence: `cargo test --test git_worktree_cli verify_reports_git_validation_for_moved_repo` passed, 1 test passed, 0 failed; `cargo test --test cli verify_passes_when_old_references_are_gone_and_new_references_exist` passed, 1 test passed, 0 failed; `rustfmt --check src/commands/verify.rs tests/git_worktree_cli.rs` passed; `git diff --check -- src/commands/verify.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
+- 2026-05-29: Completed Task 7 Step 5; committed as `feat: verify git worktree state`.
 
 ---
 
@@ -1389,7 +1398,7 @@ Record the commit hash and test result in the Execution Log.
 - Modify: `src/commands/verify.rs`
 - Modify: `tests/git_worktree_cli.rs`
 
-- [ ] **Step 1: Add failing verify CLI tests**
+- [x] **Step 1: Add failing verify CLI tests**
 
 Append this test to `tests/git_worktree_cli.rs`:
 
@@ -1429,7 +1438,7 @@ fn verify_reports_git_validation_for_moved_repo() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -1439,7 +1448,7 @@ cargo test --test git_worktree_cli verify_reports_git_validation_for_moved_repo
 
 Expected: FAIL because `verify` does not print Git verification output.
 
-- [ ] **Step 3: Update verify command**
+- [x] **Step 3: Update verify command**
 
 Modify `src/commands/verify.rs` imports:
 
@@ -1457,7 +1466,7 @@ Add this block after Codex metadata verification passes and before the final `pr
     }
 ```
 
-- [ ] **Step 4: Run verify test**
+- [x] **Step 4: Run verify test**
 
 Run:
 
@@ -1467,7 +1476,7 @@ cargo test --test git_worktree_cli verify_reports_git_validation_for_moved_repo
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 7**
+- [x] **Step 5: Commit Task 7**
 
 Run:
 
