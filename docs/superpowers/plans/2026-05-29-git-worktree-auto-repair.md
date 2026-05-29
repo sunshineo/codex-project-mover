@@ -28,6 +28,7 @@
 - 2026-05-29: Step 2 red test evidence: `cargo test --test git_worktree` failed as expected with unresolved import `codex_project_mover::git_worktree`.
 - 2026-05-29: Step 4 green test evidence: `cargo test --test git_worktree` passed, 2 tests passed, 0 failed.
 - 2026-05-29: Task 1 changed `src/git_worktree.rs`, `src/lib.rs`, `tests/git_worktree.rs`, and this plan file.
+- 2026-05-29: Task 1 commit evidence: `b03c85c7067fe71a4c92b2ffcc81744578742a3d`.
 
 ---
 
