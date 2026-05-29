@@ -54,6 +54,15 @@
 - 2026-05-29: Task 3 follow-up red test evidence: `cargo test --test git_worktree` failed as expected; `verify_git_from_new_path_rejects_non_git_new_path` returned `Ok(())` for NotGit and `moves_linked_worktree_from_bare_backed_repository` ran `git worktree move` from the temp parent instead of the bare repo.
 - 2026-05-29: Task 3 follow-up green evidence: `cargo test --test git_worktree` passed, 19 tests passed, 0 failed. Scoped checks `rustfmt --check src/git_worktree.rs tests/git_worktree.rs` and `git diff --check -- src/git_worktree.rs tests/git_worktree.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
 - 2026-05-29: Task 3 follow-up commit evidence: `cebbefbed20dafc273a8c56a3b06e2ed3fecef0b`.
+- 2026-05-29: Started Task 4 Step 1.
+- 2026-05-29: Completed Task 4 Step 1; added CLI plan test in `tests/cli.rs`.
+- 2026-05-29: Started Task 4 Step 2.
+- 2026-05-29: Task 4 Step 2 red test evidence: `cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder` failed as expected because stdout did not contain `Git worktree: none detected`.
+- 2026-05-29: Started Task 4 Step 3.
+- 2026-05-29: Completed Task 4 Step 3; `plan` now prints Git worktree planning details from `build_plan_for_existing_project`.
+- 2026-05-29: Started Task 4 Step 4.
+- 2026-05-29: Task 4 Step 4 evidence: `cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder` passed, 1 test passed, 0 failed.
+- 2026-05-29: Started Task 4 Step 5.
 
 ---
 
@@ -723,7 +732,7 @@ Record the commit hash and test result in the Execution Log.
 - Modify: `src/commands/plan.rs`
 - Modify: `tests/cli.rs`
 
-- [ ] **Step 1: Add failing CLI plan test**
+- [x] **Step 1: Add failing CLI plan test**
 
 Append this test to `tests/cli.rs`:
 
@@ -753,7 +762,7 @@ fn plan_reports_no_git_worktree_repair_for_plain_folder() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -763,7 +772,7 @@ cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder
 
 Expected: FAIL because `plan` does not print Git worktree information.
 
-- [ ] **Step 3: Update `plan` command output**
+- [x] **Step 3: Update `plan` command output**
 
 Modify `src/commands/plan.rs` to import and print Git planning details:
 
@@ -802,7 +811,7 @@ Add this block after the existing metadata reference loop:
     }
 ```
 
-- [ ] **Step 4: Run plan test**
+- [x] **Step 4: Run plan test**
 
 Run:
 

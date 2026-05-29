@@ -305,3 +305,27 @@ fn rollback_after_normal_move_removes_created_new_folder() {
     assert!(!new.exists());
     assert!(test_trash.join("new-project").exists());
 }
+
+#[test]
+fn plan_reports_no_git_worktree_repair_for_plain_folder() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    let old = temp.path().join("old-project");
+    let new = temp.path().join("new-project");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    fs::create_dir_all(&old).unwrap();
+
+    mover()
+        .args([
+            "plan",
+            "--old",
+            old.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(contains("Git worktree: none detected"));
+}
