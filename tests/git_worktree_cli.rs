@@ -1,6 +1,10 @@
 use assert_cmd::Command;
 use predicates::str::contains;
-use std::{fs, path::Path, process::Command as ProcessCommand};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command as ProcessCommand,
+};
 use tempfile::tempdir;
 
 fn mover() -> Command {
@@ -68,6 +72,15 @@ fn init_repo(path: &Path) {
     fs::write(path.join("README.md"), "hello\n").unwrap();
     git(path, &["add", "README.md"]);
     git(path, &["commit", "-m", "initial"]);
+}
+
+fn backup_manifest_path(stdout: &[u8]) -> PathBuf {
+    let stdout = std::str::from_utf8(stdout).unwrap();
+    let backup_dir = stdout
+        .lines()
+        .find_map(|line| line.strip_prefix("metadata backup: "))
+        .unwrap();
+    Path::new(backup_dir).join("manifest.json")
 }
 
 #[test]
@@ -180,4 +193,69 @@ fn apply_moves_linked_worktree_with_git_worktree_move() {
     assert!(fs::read_to_string(home.join("sessions/thread.jsonl"))
         .unwrap()
         .contains(new.to_str().unwrap()));
+}
+
+#[test]
+fn rollback_after_linked_worktree_move_preserves_moved_checkout() {
+    if !git_available() {
+        eprintln!(
+            "skipping rollback_after_linked_worktree_move_preserves_moved_checkout because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let root = fs::canonicalize(temp.path()).unwrap();
+    let home = root.join(".codex");
+    let main = root.join("main");
+    let old = root.join("linked");
+    let new = root.join("moved/linked");
+    let test_trash = root.join("trash");
+    let session = home.join("sessions/thread.jsonl");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    init_repo(&main);
+    git(
+        &main,
+        &["worktree", "add", old.to_str().unwrap(), "-b", "feature"],
+    );
+    fs::write(&session, format!(r#"{{"cwd":"{}"}}"#, old.display())).unwrap();
+
+    let apply_output = mover()
+        .env("CODEX_PROJECT_MOVER_TEST_TRASH_DIR", &test_trash)
+        .args([
+            "apply",
+            "--old",
+            old.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        apply_output.status.success(),
+        "apply failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&apply_output.stdout),
+        String::from_utf8_lossy(&apply_output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&apply_output.stdout).contains("Git worktree move complete"));
+    let manifest_path = backup_manifest_path(&apply_output.stdout);
+    assert!(fs::read_to_string(&session)
+        .unwrap()
+        .contains(new.to_str().unwrap()));
+
+    mover()
+        .env("CODEX_PROJECT_MOVER_TEST_TRASH_DIR", &test_trash)
+        .args(["rollback", "--backup", manifest_path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(contains("metadata rollback complete"));
+
+    assert!(new.exists());
+    assert!(!test_trash.join("linked").exists());
+    git(&new, &["status", "--short"]);
+    assert!(fs::read_to_string(&session)
+        .unwrap()
+        .contains(old.to_str().unwrap()));
 }

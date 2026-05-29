@@ -81,6 +81,11 @@
 - 2026-05-29: Task 5 pre-commit verification evidence: `rustfmt --check src/commands/apply.rs tests/git_worktree_cli.rs` passed; `git diff --check -- src/commands/apply.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed; `cargo test --test git_worktree_cli` passed, 2 tests passed, 0 failed; `cargo test --test cli apply_normal_move_copies_updates_and_moves_old_folder_to_test_trash` passed, 1 test passed, 0 failed.
 - 2026-05-29: Started Task 5 Step 5.
 - 2026-05-29: Completed Task 5 Step 5; staged Task 5 files for `feat: auto repair git worktrees during apply`.
+- 2026-05-29: Started Task 5 rollback safety follow-up for linked worktree backup manifests.
+- 2026-05-29: Task 5 rollback safety red test evidence: `cargo test --test git_worktree_cli rollback_after_linked_worktree_move_preserves_moved_checkout` failed as expected because rollback removed the moved linked checkout.
+- 2026-05-29: Task 5 rollback safety green evidence: moved Git plan construction before backup creation, excluded linked worktree moves from `created_new_project_path`, and `cargo test --test git_worktree_cli rollback_after_linked_worktree_move_preserves_moved_checkout` passed, 1 test passed, 0 failed.
+- 2026-05-29: Task 5 rollback safety changed `src/commands/apply.rs`, `tests/git_worktree_cli.rs`, and this plan file.
+- 2026-05-29: Task 5 rollback safety verification evidence: `cargo test --test git_worktree_cli` passed, 3 tests passed, 0 failed; `cargo test --test cli apply_relink_only_updates_metadata_when_old_is_missing_and_new_exists` passed, 1 test passed, 0 failed; `rustfmt --check src/commands/apply.rs tests/git_worktree_cli.rs` passed; `git diff --check -- src/commands/apply.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed; full `cargo test` passed.
 
 ---
 

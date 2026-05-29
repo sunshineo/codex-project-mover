@@ -31,21 +31,30 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         validate_normal_move(&old, &new)?;
     }
 
+    let git_plan = if args.relink_only {
+        None
+    } else {
+        Some(build_plan_for_existing_project(&old, &new)?)
+    };
+    let created_new_project_path = if !args.relink_only
+        && !matches!(
+            git_plan.as_ref().map(|plan| &plan.kind),
+            Some(GitWorktreeKind::LinkedWorktree)
+        ) {
+        Some(new.clone())
+    } else {
+        None
+    };
+
     let report = scan_codex_home(&codex_home, &old_str, &new_str)?;
     let changed_files = changed_metadata_files(&report);
     let backup = create_metadata_backup(
         &codex_home.join("codex-project-mover-backups"),
         &old_str,
         &new_str,
-        (!args.relink_only).then(|| new.clone()),
+        created_new_project_path,
         &changed_files,
     )?;
-
-    let git_plan = if args.relink_only {
-        None
-    } else {
-        Some(build_plan_for_existing_project(&old, &new)?)
-    };
 
     if !args.relink_only {
         match git_plan.as_ref() {
