@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     fs,
     path::{Component, Path, PathBuf},
     process::{Command, Output},
@@ -108,7 +109,8 @@ fn inspect_dotgit(project: &Path) -> Result<GitDotfile> {
         return Ok(GitDotfile::Directory);
     }
 
-    let contents = fs::read_to_string(&dotgit)?;
+    let contents = fs::read_to_string(&dotgit)
+        .with_context(|| format!("failed to read .git file at {}", dotgit.display()))?;
     let Some(raw_gitdir) = contents.trim().strip_prefix("gitdir:") else {
         bail!(
             "invalid .git file at {}: expected `gitdir:` pointer",
@@ -141,6 +143,14 @@ fn git_worktree_entries(cwd: &Path) -> Result<Vec<WorktreeEntry>> {
 }
 
 fn run_git(cwd: &Path, args: &[&str]) -> Result<Output> {
+    let args = args
+        .iter()
+        .map(|arg| OsString::from(*arg))
+        .collect::<Vec<_>>();
+    run_git_os(cwd, &args)
+}
+
+fn run_git_os(cwd: &Path, args: &[OsString]) -> Result<Output> {
     let command_label = git_command_label(args);
     let output = Command::new("git")
         .current_dir(cwd)
@@ -162,11 +172,91 @@ fn run_git(cwd: &Path, args: &[&str]) -> Result<Output> {
     Ok(output)
 }
 
-fn git_command_label(args: &[&str]) -> String {
-    std::iter::once("git")
-        .chain(args.iter().copied())
+fn git_command_label(args: &[OsString]) -> String {
+    std::iter::once("git".to_string())
+        .chain(args.iter().map(|arg| arg.to_string_lossy().into_owned()))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+pub fn repair_main_worktree_after_copy(plan: &GitWorktreePlan) -> Result<()> {
+    if plan.kind != GitWorktreeKind::MainWorktree {
+        return Ok(());
+    }
+
+    let mut args = vec![OsString::from("worktree"), OsString::from("repair")];
+    args.extend(plan.repair_paths().into_iter().map(PathBuf::into_os_string));
+    run_git_os(&plan.new_project_path, &args).map(|_| ())
+}
+
+pub fn move_linked_worktree(plan: &GitWorktreePlan) -> Result<()> {
+    if plan.kind != GitWorktreeKind::LinkedWorktree {
+        return Ok(());
+    }
+
+    if let Some(parent) = plan.new_project_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+
+    let cwd = main_worktree_cwd(plan)?;
+    let args = vec![
+        OsString::from("worktree"),
+        OsString::from("move"),
+        plan.project_path.as_os_str().to_os_string(),
+        plan.new_project_path.as_os_str().to_os_string(),
+    ];
+    run_git_os(&cwd, &args).map(|_| ())
+}
+
+pub fn verify_git_worktree_state(plan: &GitWorktreePlan) -> Result<()> {
+    if plan.kind == GitWorktreeKind::NotGit {
+        return Ok(());
+    }
+
+    let project_path = normalize_path_for_compare(&plan.project_path);
+    for entry in &plan.entries {
+        let entry_path = normalize_path_for_compare(&entry.path);
+        if entry_path.starts_with(&project_path) {
+            bail!("old Git worktree path remains: {}", entry.path.display());
+        }
+        if let Some(reason) = &entry.prunable {
+            bail!(
+                "Git worktree is prunable: {} ({})",
+                entry.path.display(),
+                reason
+            );
+        }
+    }
+
+    let status_cwd = if plan.new_project_path.exists() {
+        &plan.new_project_path
+    } else {
+        &plan.project_path
+    };
+    run_git(status_cwd, &["status", "--short"]).map(|_| ())
+}
+
+pub fn verify_git_from_new_path(old: &Path, new: &Path) -> Result<()> {
+    let mut plan = build_plan_for_existing_project(new, new)?;
+    plan.project_path = old.to_path_buf();
+    verify_git_worktree_state(&plan)
+}
+
+fn main_worktree_cwd(plan: &GitWorktreePlan) -> Result<PathBuf> {
+    let project_path = normalize_path_for_compare(&plan.project_path);
+
+    plan.entries
+        .iter()
+        .find(|entry| normalize_path_for_compare(&entry.path) != project_path && !entry.bare)
+        .map(|entry| entry.path.clone())
+        .or_else(|| {
+            plan.entries
+                .iter()
+                .find(|entry| normalize_path_for_compare(&entry.path) == project_path)
+                .and_then(|_| plan.project_path.parent().map(Path::to_path_buf))
+        })
+        .ok_or_else(|| anyhow::anyhow!("could not resolve a main Git worktree cwd"))
 }
 
 pub fn parse_worktree_list(bytes: &[u8]) -> Result<Vec<WorktreeEntry>> {

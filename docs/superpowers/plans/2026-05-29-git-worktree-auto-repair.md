@@ -40,6 +40,15 @@
 - 2026-05-29: Task 2 review follow-up red test evidence: `cargo test --test git_worktree` failed as expected for invalid `.git` returning `Ok(NotGit)` and `--separate-git-dir` under a `worktrees` path being misclassified as `LinkedWorktree`; 9 passed, 2 failed.
 - 2026-05-29: Task 2 review follow-up green evidence: hardened linked detection to require private gitdir `commondir`, invalid `.git` files now error with path context, Git command failures include command/cwd/status/stdout/stderr, Git-backed test helper disables global/system config, signing, hooks, and init templates; `cargo test --test git_worktree` passed, 11 tests passed, 0 failed.
 - 2026-05-29: Task 2 review follow-up commit evidence: `0c4001efc1e730114357297cfb0e50310cbc5528`.
+- 2026-05-29: Started Task 3 Step 1.
+- 2026-05-29: Completed Task 3 Step 1; added Git operation tests in `tests/git_worktree.rs`.
+- 2026-05-29: Started Task 3 Step 2.
+- 2026-05-29: Task 3 Step 2 red test evidence: `cargo test --test git_worktree` failed as expected with unresolved imports for `move_linked_worktree`, `repair_main_worktree_after_copy`, and `verify_git_worktree_state`.
+- 2026-05-29: Started Task 3 Step 3.
+- 2026-05-29: Completed Task 3 Step 3; implemented Git repair, linked worktree move, verification, new-path verification, and dynamic Git argument execution in `src/git_worktree.rs`.
+- 2026-05-29: Started Task 3 Step 4.
+- 2026-05-29: Task 3 Step 4 evidence: `cargo test --test git_worktree` passed, 15 tests passed, 0 failed.
+- 2026-05-29: Started Task 3 Step 5.
 
 ---
 
@@ -497,7 +506,7 @@ Record the commit hash and test result in the Execution Log.
 - Modify: `src/git_worktree.rs`
 - Modify: `tests/git_worktree.rs`
 
-- [ ] **Step 1: Add failing operation tests**
+- [x] **Step 1: Add failing operation tests**
 
 Append these tests to `tests/git_worktree.rs`:
 
@@ -568,7 +577,7 @@ fn repair_paths_exclude_main_worktree_path() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -578,7 +587,7 @@ cargo test --test git_worktree
 
 Expected: FAIL because repair, move, and verify functions do not exist.
 
-- [ ] **Step 3: Implement operation functions**
+- [x] **Step 3: Implement operation functions**
 
 Add this code to `src/git_worktree.rs`:
 
@@ -680,7 +689,7 @@ fn run_git_command(mut command: Command, label: &str) -> Result<()> {
 }
 ```
 
-- [ ] **Step 4: Run operation tests**
+- [x] **Step 4: Run operation tests**
 
 Run:
 
@@ -690,7 +699,7 @@ cargo test --test git_worktree
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 3**
+- [~] **Step 5: Commit Task 3**
 
 Run:
 

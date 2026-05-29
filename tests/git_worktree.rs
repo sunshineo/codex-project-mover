@@ -1,8 +1,9 @@
 use std::{fs, path::Path, process::Command};
 
 use codex_project_mover::git_worktree::{
-    build_plan_for_existing_project, map_worktree_paths, parse_worktree_list, GitWorktreeKind,
-    GitWorktreePlan, WorktreePathMove,
+    build_plan_for_existing_project, map_worktree_paths, move_linked_worktree, parse_worktree_list,
+    repair_main_worktree_after_copy, verify_git_worktree_state, GitWorktreeKind, GitWorktreePlan,
+    WorktreePathMove,
 };
 use tempfile::tempdir;
 
@@ -303,4 +304,78 @@ fn separate_git_dir_under_worktrees_component_is_main_worktree() {
 
     assert_eq!(plan.kind, GitWorktreeKind::MainWorktree);
     assert_eq!(plan.project_path, worktree);
+}
+
+#[test]
+fn moves_linked_worktree_with_git_command() {
+    if !git_available() {
+        eprintln!("skipping moves_linked_worktree_with_git_command because git is unavailable");
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let main = temp.path().join("repo");
+    let linked = temp.path().join("linked");
+    let new_linked = temp.path().join("nested/moved-linked");
+    init_repo(&main);
+    git(
+        &main,
+        &["worktree", "add", linked.to_str().unwrap(), "-b", "feature"],
+    );
+
+    let plan = build_plan_for_existing_project(&linked, &new_linked).unwrap();
+    move_linked_worktree(&plan).unwrap();
+
+    assert!(!linked.exists());
+    assert!(new_linked.exists());
+    git(&new_linked, &["status", "--short"]);
+}
+
+#[test]
+fn verifies_git_state_rejects_old_worktree_path() {
+    let plan = codex_project_mover::git_worktree::GitWorktreePlan {
+        kind: GitWorktreeKind::MainWorktree,
+        project_path: Path::new("/old/project").to_path_buf(),
+        new_project_path: Path::new("/new/project").to_path_buf(),
+        entries: parse_worktree_list(
+            b"worktree /old/project/.worktrees/feature\0HEAD a\0branch refs/heads/feature\0\0",
+        )
+        .unwrap(),
+        path_moves: vec![],
+    };
+
+    let error = verify_git_worktree_state(&plan).unwrap_err().to_string();
+
+    assert!(error.contains("old Git worktree path remains"));
+}
+
+#[test]
+fn repair_paths_exclude_main_worktree_path() {
+    let entries = parse_worktree_list(
+        b"worktree /old/project\0HEAD a\0branch refs/heads/main\0\0worktree /old/project/.worktrees/feature\0HEAD b\0branch refs/heads/feature\0\0",
+    )
+    .unwrap();
+    let plan = codex_project_mover::git_worktree::GitWorktreePlan {
+        kind: GitWorktreeKind::MainWorktree,
+        project_path: Path::new("/old/project").to_path_buf(),
+        new_project_path: Path::new("/new/project").to_path_buf(),
+        path_moves: map_worktree_paths(
+            &entries,
+            Path::new("/old/project"),
+            Path::new("/new/project"),
+        ),
+        entries,
+    };
+
+    assert_eq!(
+        plan.repair_paths(),
+        vec![Path::new("/new/project/.worktrees/feature").to_path_buf()]
+    );
+}
+
+#[test]
+fn repair_main_worktree_after_copy_noops_for_non_git_plan() {
+    let plan = GitWorktreePlan::no_git(Path::new("/old/project"), Path::new("/new/project"));
+
+    repair_main_worktree_after_copy(&plan).unwrap();
 }
