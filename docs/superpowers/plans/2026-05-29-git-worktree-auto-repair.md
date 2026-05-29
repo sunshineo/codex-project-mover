@@ -39,6 +39,7 @@
 - 2026-05-29: Started Task 2 review follow-up to harden linked worktree detection, invalid `.git` handling, Git command diagnostics, and Git-backed tests.
 - 2026-05-29: Task 2 review follow-up red test evidence: `cargo test --test git_worktree` failed as expected for invalid `.git` returning `Ok(NotGit)` and `--separate-git-dir` under a `worktrees` path being misclassified as `LinkedWorktree`; 9 passed, 2 failed.
 - 2026-05-29: Task 2 review follow-up green evidence: hardened linked detection to require private gitdir `commondir`, invalid `.git` files now error with path context, Git command failures include command/cwd/status/stdout/stderr, Git-backed test helper disables global/system config, signing, hooks, and init templates; `cargo test --test git_worktree` passed, 11 tests passed, 0 failed.
+- 2026-05-29: Task 2 review follow-up commit evidence: `0c4001efc1e730114357297cfb0e50310cbc5528`.
 
 ---
 
