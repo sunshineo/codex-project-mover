@@ -259,3 +259,108 @@ fn rollback_after_linked_worktree_move_preserves_moved_checkout() {
         .unwrap()
         .contains(old.to_str().unwrap()));
 }
+
+#[test]
+fn apply_relink_only_repairs_manually_moved_main_worktree() {
+    if !git_available() {
+        eprintln!(
+            "skipping apply_relink_only_repairs_manually_moved_main_worktree because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let root = fs::canonicalize(temp.path()).unwrap();
+    let home = root.join(".codex");
+    let old = root.join("old-project");
+    let linked = old.join(".worktrees/feature");
+    let new = root.join("new-project");
+    let new_linked = new.join(".worktrees/feature");
+    let session = home.join("sessions/thread.jsonl");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    init_repo(&old);
+    fs::create_dir_all(linked.parent().unwrap()).unwrap();
+    git(
+        &old,
+        &["worktree", "add", linked.to_str().unwrap(), "-b", "feature"],
+    );
+    fs::rename(&old, &new).unwrap();
+    fs::write(&session, format!(r#"{{"cwd":"{}"}}"#, old.display())).unwrap();
+
+    mover()
+        .args([
+            "apply",
+            "--old",
+            old.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+            "--relink-only",
+        ])
+        .assert()
+        .success()
+        .stdout(contains("Git worktree repair complete"))
+        .stdout(contains(
+            "relink-only complete: project folder was not moved",
+        ));
+
+    git(&new, &["status", "--short"]);
+    git(&new_linked, &["status", "--short"]);
+    let session_contents = fs::read_to_string(&session).unwrap();
+    assert!(session_contents.contains(new.to_str().unwrap()));
+    assert!(!session_contents.contains(old.to_str().unwrap()));
+}
+
+#[test]
+fn apply_relink_only_repairs_manually_moved_linked_worktree() {
+    if !git_available() {
+        eprintln!(
+            "skipping apply_relink_only_repairs_manually_moved_linked_worktree because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let root = fs::canonicalize(temp.path()).unwrap();
+    let home = root.join(".codex");
+    let main = root.join("main");
+    let old = root.join("linked");
+    let new = root.join("moved/linked");
+    let session = home.join("sessions/thread.jsonl");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    init_repo(&main);
+    git(
+        &main,
+        &["worktree", "add", old.to_str().unwrap(), "-b", "feature"],
+    );
+    fs::create_dir_all(new.parent().unwrap()).unwrap();
+    fs::rename(&old, &new).unwrap();
+    fs::write(&session, format!(r#"{{"cwd":"{}"}}"#, old.display())).unwrap();
+
+    mover()
+        .args([
+            "apply",
+            "--old",
+            old.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+            "--relink-only",
+        ])
+        .assert()
+        .success()
+        .stdout(contains("Git worktree repair complete"))
+        .stdout(contains(
+            "relink-only complete: project folder was not moved",
+        ));
+
+    git(&new, &["status", "--short"]);
+    let worktree_list = git_stdout(&main, &["worktree", "list", "--porcelain"]);
+    assert!(worktree_list.contains(new.to_str().unwrap()));
+    assert!(!worktree_list.contains(old.to_str().unwrap()));
+    let session_contents = fs::read_to_string(&session).unwrap();
+    assert!(session_contents.contains(new.to_str().unwrap()));
+    assert!(!session_contents.contains(old.to_str().unwrap()));
+}

@@ -86,6 +86,15 @@
 - 2026-05-29: Task 5 rollback safety green evidence: moved Git plan construction before backup creation, excluded linked worktree moves from `created_new_project_path`, and `cargo test --test git_worktree_cli rollback_after_linked_worktree_move_preserves_moved_checkout` passed, 1 test passed, 0 failed.
 - 2026-05-29: Task 5 rollback safety changed `src/commands/apply.rs`, `tests/git_worktree_cli.rs`, and this plan file.
 - 2026-05-29: Task 5 rollback safety verification evidence: `cargo test --test git_worktree_cli` passed, 3 tests passed, 0 failed; `cargo test --test cli apply_relink_only_updates_metadata_when_old_is_missing_and_new_exists` passed, 1 test passed, 0 failed; `rustfmt --check src/commands/apply.rs tests/git_worktree_cli.rs` passed; `git diff --check -- src/commands/apply.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed; full `cargo test` passed.
+- 2026-05-29: Started Task 6 Step 1.
+- 2026-05-29: Completed Task 6 Step 1; added relink-only Git repair CLI tests for manually moved main and linked worktrees in `tests/git_worktree_cli.rs`.
+- 2026-05-29: Task 6 Step 2 red test evidence: `cargo test --test git_worktree_cli` failed as expected because relink-only updated metadata without printing `Git worktree repair complete` or repairing Git first; 3 passed, 2 failed.
+- 2026-05-29: Started Task 6 Step 3.
+- 2026-05-29: Completed Task 6 Step 3; added `build_plan_for_relink_only`, linked manual-move repair, and relink-only apply integration before Codex metadata updates.
+- 2026-05-29: Task 6 Step 4 evidence: `cargo test --test git_worktree_cli` passed, 5 tests passed, 0 failed.
+- 2026-05-29: Task 6 changed `src/git_worktree.rs`, `src/commands/apply.rs`, `tests/git_worktree_cli.rs`, and this plan file.
+- 2026-05-29: Task 6 verification evidence: `cargo test --test git_worktree_cli` passed, 5 tests passed, 0 failed; `cargo test --test git_worktree` passed, 19 tests passed, 0 failed; `cargo test --test cli apply_relink_only_updates_metadata_when_old_is_missing_and_new_exists` passed, 1 test passed, 0 failed; `cargo fmt --check` passed; `git diff --check -- src/git_worktree.rs src/commands/apply.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
+- 2026-05-29: Started Task 6 Step 5.
 
 ---
 
@@ -1129,7 +1138,7 @@ Record the commit hash and test result in the Execution Log.
 - Modify: `src/commands/apply.rs`
 - Modify: `tests/git_worktree_cli.rs`
 
-- [ ] **Step 1: Add failing relink-only test**
+- [x] **Step 1: Add failing relink-only test**
 
 Append this test to `tests/git_worktree_cli.rs`:
 
@@ -1228,7 +1237,7 @@ fn apply_relink_only_repairs_manually_moved_linked_worktree() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -1238,7 +1247,7 @@ cargo test --test git_worktree_cli
 
 Expected: FAIL because relink-only does not run Git repair.
 
-- [ ] **Step 3: Add relink plan builder and apply integration**
+- [x] **Step 3: Add relink plan builder and apply integration**
 
 Add this function to `src/git_worktree.rs`:
 
@@ -1351,7 +1360,7 @@ Add this block before Codex metadata updates:
     }
 ```
 
-- [ ] **Step 4: Run relink-only test**
+- [x] **Step 4: Run relink-only test**
 
 Run:
 
@@ -1361,7 +1370,7 @@ cargo test --test git_worktree_cli
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 6**
+- [x] **Step 5: Commit Task 6**
 
 Run:
 

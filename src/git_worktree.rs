@@ -100,6 +100,58 @@ pub fn build_plan_for_existing_project(old: &Path, new: &Path) -> Result<GitWork
     }
 }
 
+pub fn build_plan_for_relink_only(old: &Path, new: &Path) -> Result<GitWorktreePlan> {
+    match inspect_dotgit(new)? {
+        GitDotfile::Missing => Ok(GitWorktreePlan::no_git(old, new)),
+        GitDotfile::Directory => {
+            let entries = git_worktree_entries(new).with_context(|| {
+                format!(
+                    "failed to inspect Git worktrees from relink-only new path {}",
+                    new.display()
+                )
+            })?;
+            Ok(GitWorktreePlan {
+                kind: GitWorktreeKind::MainWorktree,
+                project_path: old.to_path_buf(),
+                new_project_path: new.to_path_buf(),
+                path_moves: map_worktree_paths(&entries, old, new),
+                entries,
+            })
+        }
+        GitDotfile::File { gitdir } => {
+            if is_linked_worktree_gitdir(&gitdir) {
+                let entries = git_worktree_entries_from_gitdir(&gitdir).with_context(|| {
+                    format!(
+                        "failed to inspect Git worktrees from relink-only gitdir {}",
+                        gitdir.display()
+                    )
+                })?;
+                Ok(GitWorktreePlan {
+                    kind: GitWorktreeKind::LinkedWorktree,
+                    project_path: old.to_path_buf(),
+                    new_project_path: new.to_path_buf(),
+                    path_moves: map_worktree_paths(&entries, old, new),
+                    entries,
+                })
+            } else {
+                let entries = git_worktree_entries(new).with_context(|| {
+                    format!(
+                        "failed to inspect Git worktrees from relink-only new path {}",
+                        new.display()
+                    )
+                })?;
+                Ok(GitWorktreePlan {
+                    kind: GitWorktreeKind::MainWorktree,
+                    project_path: old.to_path_buf(),
+                    new_project_path: new.to_path_buf(),
+                    path_moves: map_worktree_paths(&entries, old, new),
+                    entries,
+                })
+            }
+        }
+    }
+}
+
 fn inspect_dotgit(project: &Path) -> Result<GitDotfile> {
     let dotgit = project.join(".git");
     if !dotgit.exists() {
@@ -140,6 +192,39 @@ fn is_linked_worktree_gitdir(gitdir: &Path) -> bool {
 fn git_worktree_entries(cwd: &Path) -> Result<Vec<WorktreeEntry>> {
     let output = run_git(cwd, &["worktree", "list", "--porcelain", "-z"])?;
     parse_worktree_list(&output.stdout)
+}
+
+fn git_worktree_entries_from_gitdir(gitdir: &Path) -> Result<Vec<WorktreeEntry>> {
+    let common_dir = resolve_common_dir(gitdir)?;
+    let args = vec![
+        OsString::from("--git-dir"),
+        common_dir.as_os_str().to_os_string(),
+        OsString::from("worktree"),
+        OsString::from("list"),
+        OsString::from("--porcelain"),
+        OsString::from("-z"),
+    ];
+    run_git_os(&common_dir, &args).and_then(|output| parse_worktree_list(&output.stdout))
+}
+
+fn resolve_common_dir(gitdir: &Path) -> Result<PathBuf> {
+    let commondir = gitdir.join("commondir");
+    if !commondir.exists() {
+        return Ok(gitdir.to_path_buf());
+    }
+
+    let raw = fs::read_to_string(&commondir)
+        .with_context(|| format!("failed to read {}", commondir.display()))?;
+    let raw = raw.trim();
+    if raw.is_empty() {
+        bail!("invalid empty commondir file at {}", commondir.display());
+    }
+    let path = PathBuf::from(raw);
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Ok(gitdir.join(path))
+    }
 }
 
 fn run_git(cwd: &Path, args: &[&str]) -> Result<Output> {
@@ -206,6 +291,20 @@ pub fn move_linked_worktree(plan: &GitWorktreePlan) -> Result<()> {
         OsString::from("worktree"),
         OsString::from("move"),
         plan.project_path.as_os_str().to_os_string(),
+        plan.new_project_path.as_os_str().to_os_string(),
+    ];
+    run_git_os(&cwd, &args).map(|_| ())
+}
+
+pub fn repair_linked_worktree_after_manual_move(plan: &GitWorktreePlan) -> Result<()> {
+    if plan.kind != GitWorktreeKind::LinkedWorktree {
+        return Ok(());
+    }
+
+    let cwd = linked_worktree_move_cwd(plan)?;
+    let args = vec![
+        OsString::from("worktree"),
+        OsString::from("repair"),
         plan.new_project_path.as_os_str().to_os_string(),
     ];
     run_git_os(&cwd, &args).map(|_| ())

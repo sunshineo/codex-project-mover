@@ -6,7 +6,8 @@ use anyhow::{bail, Context, Result};
 use crate::backup::create_metadata_backup;
 use crate::cli::ApplyArgs;
 use crate::git_worktree::{
-    build_plan_for_existing_project, move_linked_worktree, repair_main_worktree_after_copy,
+    build_plan_for_existing_project, build_plan_for_relink_only, move_linked_worktree,
+    repair_linked_worktree_after_manual_move, repair_main_worktree_after_copy,
     verify_git_from_new_path, GitWorktreeKind,
 };
 use crate::pathing::{codex_home_from_arg, normalize_project_path};
@@ -32,7 +33,7 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     }
 
     let git_plan = if args.relink_only {
-        None
+        Some(build_plan_for_relink_only(&old, &new)?)
     } else {
         Some(build_plan_for_existing_project(&old, &new)?)
     };
@@ -80,6 +81,26 @@ pub fn run(args: ApplyArgs) -> Result<()> {
                 verify_project_tree(&old, &new)
                     .with_context(|| "copied project tree failed verification; metadata was not changed and old folder was not moved to Trash")?;
             }
+        }
+    }
+
+    if args.relink_only {
+        match git_plan.as_ref() {
+            Some(plan) if plan.kind == GitWorktreeKind::MainWorktree => {
+                repair_main_worktree_after_copy(plan)?;
+                verify_git_from_new_path(&old, &new).with_context(|| {
+                    "Git worktree verification failed after relink-only repair; metadata was not changed"
+                })?;
+                println!("Git worktree repair complete");
+            }
+            Some(plan) if plan.kind == GitWorktreeKind::LinkedWorktree => {
+                repair_linked_worktree_after_manual_move(plan)?;
+                verify_git_from_new_path(&old, &new).with_context(|| {
+                    "Git linked worktree verification failed after relink-only repair; metadata was not changed"
+                })?;
+                println!("Git worktree repair complete");
+            }
+            Some(_) | None => {}
         }
     }
 
