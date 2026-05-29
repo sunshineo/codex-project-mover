@@ -1,8 +1,10 @@
-use std::path::Path;
+use std::{fs, path::Path, process::Command};
 
 use codex_project_mover::git_worktree::{
-    map_worktree_paths, parse_worktree_list, GitWorktreeKind, GitWorktreePlan, WorktreePathMove,
+    build_plan_for_existing_project, map_worktree_paths, parse_worktree_list, GitWorktreeKind,
+    GitWorktreePlan, WorktreePathMove,
 };
+use tempfile::tempdir;
 
 #[test]
 fn parses_porcelain_z_worktree_entries() {
@@ -133,4 +135,88 @@ fn ignores_unknown_fields_that_start_with_locked() {
     .unwrap();
 
     assert_eq!(entries[0].locked, None);
+}
+
+fn git_available() -> bool {
+    Command::new("git")
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+fn git(cwd: &Path, args: &[&str]) {
+    let output = Command::new("git")
+        .current_dir(cwd)
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "git {:?} failed\nstdout:\n{}\nstderr:\n{}",
+        args,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn init_repo(path: &Path) {
+    fs::create_dir_all(path).unwrap();
+    git(path, &["init"]);
+    git(path, &["config", "user.email", "test@example.com"]);
+    git(path, &["config", "user.name", "Test User"]);
+    fs::write(path.join("README.md"), "hello\n").unwrap();
+    git(path, &["add", "README.md"]);
+    git(path, &["commit", "-m", "initial"]);
+}
+
+#[test]
+fn detects_main_worktree_root() {
+    if !git_available() {
+        eprintln!("skipping detects_main_worktree_root because git is unavailable");
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let old = temp.path().join("repo");
+    let new = temp.path().join("moved/repo");
+    init_repo(&old);
+    let old = fs::canonicalize(old).unwrap();
+
+    let plan = build_plan_for_existing_project(&old, &new).unwrap();
+
+    assert_eq!(plan.kind, GitWorktreeKind::MainWorktree);
+    assert_eq!(plan.project_path, old);
+    assert_eq!(plan.new_project_path, new);
+    assert_eq!(plan.entries.len(), 1);
+}
+
+#[test]
+fn detects_linked_worktree_root() {
+    if !git_available() {
+        eprintln!("skipping detects_linked_worktree_root because git is unavailable");
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let main = temp.path().join("repo");
+    let linked = temp.path().join("linked");
+    let new = temp.path().join("moved-linked");
+    init_repo(&main);
+    git(
+        &main,
+        &["worktree", "add", linked.to_str().unwrap(), "-b", "feature"],
+    );
+    let main = fs::canonicalize(main).unwrap();
+    let linked = fs::canonicalize(linked).unwrap();
+
+    let plan = build_plan_for_existing_project(&linked, &new).unwrap();
+
+    assert_eq!(plan.kind, GitWorktreeKind::LinkedWorktree);
+    assert_eq!(plan.project_path, linked);
+    assert!(plan.entries.iter().any(|entry| entry.path == main));
+    assert!(plan
+        .entries
+        .iter()
+        .any(|entry| entry.path == plan.project_path));
 }

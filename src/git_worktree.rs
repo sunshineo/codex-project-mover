@@ -1,4 +1,8 @@
-use std::path::{Component, Path, PathBuf};
+use std::{
+    fs,
+    path::{Component, Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::{bail, Result};
 
@@ -55,6 +59,88 @@ impl GitWorktreePlan {
             .map(|path_move| path_move.new_path.clone())
             .collect()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum GitDotfile {
+    Missing,
+    Directory,
+    File { gitdir: PathBuf },
+}
+
+pub fn build_plan_for_existing_project(old: &Path, new: &Path) -> Result<GitWorktreePlan> {
+    match inspect_dotgit(old)? {
+        GitDotfile::Missing => Ok(GitWorktreePlan::no_git(old, new)),
+        GitDotfile::Directory => {
+            let entries = git_worktree_entries(old)?;
+            Ok(GitWorktreePlan {
+                kind: GitWorktreeKind::MainWorktree,
+                project_path: old.to_path_buf(),
+                new_project_path: new.to_path_buf(),
+                path_moves: map_worktree_paths(&entries, old, new),
+                entries,
+            })
+        }
+        GitDotfile::File { gitdir } => {
+            let entries = git_worktree_entries(old)?;
+            let kind = if gitdir
+                .components()
+                .any(|component| component.as_os_str() == "worktrees")
+            {
+                GitWorktreeKind::LinkedWorktree
+            } else {
+                GitWorktreeKind::MainWorktree
+            };
+            Ok(GitWorktreePlan {
+                kind,
+                project_path: old.to_path_buf(),
+                new_project_path: new.to_path_buf(),
+                path_moves: map_worktree_paths(&entries, old, new),
+                entries,
+            })
+        }
+    }
+}
+
+fn inspect_dotgit(project: &Path) -> Result<GitDotfile> {
+    let dotgit = project.join(".git");
+    if !dotgit.exists() {
+        return Ok(GitDotfile::Missing);
+    }
+    if dotgit.is_dir() {
+        return Ok(GitDotfile::Directory);
+    }
+
+    let contents = fs::read_to_string(&dotgit)?;
+    let Some(raw_gitdir) = contents.trim().strip_prefix("gitdir:") else {
+        return Ok(GitDotfile::Missing);
+    };
+    let raw_gitdir = raw_gitdir.trim();
+    let gitdir = if Path::new(raw_gitdir).is_absolute() {
+        PathBuf::from(raw_gitdir)
+    } else {
+        project.join(raw_gitdir)
+    };
+
+    Ok(GitDotfile::File { gitdir })
+}
+
+fn git_worktree_entries(cwd: &Path) -> Result<Vec<WorktreeEntry>> {
+    let output = Command::new("git")
+        .current_dir(cwd)
+        .args(["worktree", "list", "--porcelain", "-z"])
+        .output()?;
+
+    if !output.status.success() {
+        bail!(
+            "git worktree list failed in {}\nstdout:\n{}\nstderr:\n{}",
+            cwd.display(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    parse_worktree_list(&output.stdout)
 }
 
 pub fn parse_worktree_list(bytes: &[u8]) -> Result<Vec<WorktreeEntry>> {

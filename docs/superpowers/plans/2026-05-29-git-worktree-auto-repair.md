@@ -30,6 +30,11 @@
 - 2026-05-29: Task 1 changed `src/git_worktree.rs`, `src/lib.rs`, `tests/git_worktree.rs`, and this plan file.
 - 2026-05-29: Task 1 commit evidence: `b03c85c7067fe71a4c92b2ffcc81744578742a3d`.
 - 2026-05-29: Task 1 review fix evidence: added comparison-only worktree path normalization and stricter `locked`/`prunable` parser matching; `cargo test --test git_worktree` passed, 6 tests passed, 0 failed.
+- 2026-05-29: Started Task 2 Step 1.
+- 2026-05-29: Completed Task 2 Step 1; added Git detection helpers and main/linked worktree detection tests in `tests/git_worktree.rs`.
+- 2026-05-29: Task 2 Step 2 red test evidence: `cargo test --test git_worktree` failed as expected with unresolved import `codex_project_mover::git_worktree::build_plan_for_existing_project`.
+- 2026-05-29: Completed Task 2 Step 3; added `.git` inspection, `git worktree list --porcelain -z` command runner, and plan construction in `src/git_worktree.rs`.
+- 2026-05-29: Task 2 Step 4 evidence: `cargo test --test git_worktree` passed, 8 tests passed, 0 failed. Detection tests canonicalize temp repo paths before comparing because Git reports macOS temp worktrees under `/private/var` while `tempfile` returns `/var`.
 
 ---
 
@@ -272,7 +277,7 @@ Record the commit hash and test result in the Execution Log.
 - Modify: `src/git_worktree.rs`
 - Modify: `tests/git_worktree.rs`
 
-- [ ] **Step 1: Add Git test helpers and failing detection tests**
+- [x] **Step 1: Add Git test helpers and failing detection tests**
 
 Append this helper code to `tests/git_worktree.rs`:
 
@@ -360,7 +365,7 @@ fn detects_linked_worktree_root() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -370,7 +375,7 @@ cargo test --test git_worktree
 
 Expected: FAIL because `build_plan_for_existing_project` is not implemented.
 
-- [ ] **Step 3: Implement Git command runner and detection**
+- [x] **Step 3: Implement Git command runner and detection**
 
 Append this implementation to `src/git_worktree.rs`, then adjust imports to include `std::fs` and `std::process::Command`:
 
@@ -458,7 +463,7 @@ fn git_worktree_entries(cwd: &Path) -> Result<Vec<WorktreeEntry>> {
 }
 ```
 
-- [ ] **Step 4: Run detection tests**
+- [x] **Step 4: Run detection tests**
 
 Run:
 
@@ -468,7 +473,7 @@ cargo test --test git_worktree
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 2**
+- [ ] **Step 5: Commit Task 2** _(in progress)_
 
 Run:
 
