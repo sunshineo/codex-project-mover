@@ -18,7 +18,11 @@ Because Codex must be fully closed during the move, you can't drive this tool fr
 
 Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash.
 
+When the project folder is a Git worktree root, `apply` automatically repairs Git worktree metadata. Main worktrees are copied and then repaired with `git worktree repair` before Codex metadata changes. Linked worktrees are moved with `git worktree move` instead of a generic filesystem copy. Codex paths should always point at the checkout root, not at `.git/worktrees/...` internals.
+
 Relink-only mode is for folders already moved by the user. It requires the old path to be missing and the new path to exist.
+
+Relink-only also attempts Git worktree repair from the new path when the project has already been moved manually. If Git repair fails, the tool stops before updating Codex metadata and prints the Git command context.
 
 Verify checks that supported old-path references are gone and supported new-path references are present.
 

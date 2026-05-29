@@ -104,6 +104,10 @@
 - 2026-05-29: Task 7 changed `src/commands/verify.rs`, `tests/git_worktree_cli.rs`, and this plan file.
 - 2026-05-29: Task 7 verification evidence: `cargo test --test git_worktree_cli verify_reports_git_validation_for_moved_repo` passed, 1 test passed, 0 failed; `cargo test --test cli verify_passes_when_old_references_are_gone_and_new_references_exist` passed, 1 test passed, 0 failed; `rustfmt --check src/commands/verify.rs tests/git_worktree_cli.rs` passed; `git diff --check -- src/commands/verify.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
 - 2026-05-29: Completed Task 7 Step 5; committed as `feat: verify git worktree state`.
+- 2026-05-29: Completed Tasks 6 and 7. Task 6 commit evidence: `8277aa9f7fa029107553f13a563c2610064ef372`; Task 7 commit evidence: `0f306232564640da1de0f6e7c95d26e8ae33abd1`.
+- 2026-05-29: Started Task 8 Step 1; updated `README.md` with automatic Git worktree repair behavior for normal apply and relink-only.
+- 2026-05-29: Task 8 Step 2 evidence: `cargo fmt --check` passed; `cargo test` passed across all unit, integration, and doc tests.
+- 2026-05-29: Task 8 Step 3 evidence: `cargo run -- --help` passed and output listed `plan`, `apply`, `verify`, and `rollback`.
 
 ---
 
@@ -1495,7 +1499,7 @@ Record the commit hash and test result in the Execution Log.
 - Modify: `README.md`
 - Modify: `docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md`
 
-- [ ] **Step 1: Update README**
+- [x] **Step 1: Update README**
 
 Add this paragraph after the normal `apply` behavior paragraph in `README.md`:
 
@@ -1509,7 +1513,7 @@ Add this paragraph after the relink-only paragraph:
 Relink-only also attempts Git worktree repair from the new path when the project has already been moved manually. If Git repair fails, the tool stops before updating Codex metadata and prints the Git command context.
 ```
 
-- [ ] **Step 2: Run formatting and full tests**
+- [x] **Step 2: Run formatting and full tests**
 
 Run:
 
@@ -1520,7 +1524,7 @@ cargo test
 
 Expected: PASS for all tests. Git-dependent tests may print skip messages only when `git` is unavailable.
 
-- [ ] **Step 3: Run CLI help smoke test**
+- [x] **Step 3: Run CLI help smoke test**
 
 Run:
 
@@ -1546,8 +1550,8 @@ Record the commit hash and test result in the Execution Log.
 ## Final Verification
 
 - [ ] Run `git status --short`.
-- [ ] Run `cargo fmt --check`.
-- [ ] Run `cargo test`.
-- [ ] Run `cargo run -- --help`.
-- [ ] Update this plan's Execution Log with final verification commands and results.
+- [x] Run `cargo fmt --check`.
+- [x] Run `cargo test`.
+- [x] Run `cargo run -- --help`.
+- [x] Update this plan's Execution Log with final verification commands and results.
 - [ ] Report changed files, commits, and any residual risk.
