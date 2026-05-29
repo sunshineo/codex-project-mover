@@ -53,6 +53,7 @@
 - 2026-05-29: Started Task 3 code-quality follow-up for bare-backed linked moves, post-operation verification errors, verification contract tests, main repair integration coverage, and ambient Git environment hardening.
 - 2026-05-29: Task 3 follow-up red test evidence: `cargo test --test git_worktree` failed as expected; `verify_git_from_new_path_rejects_non_git_new_path` returned `Ok(())` for NotGit and `moves_linked_worktree_from_bare_backed_repository` ran `git worktree move` from the temp parent instead of the bare repo.
 - 2026-05-29: Task 3 follow-up green evidence: `cargo test --test git_worktree` passed, 19 tests passed, 0 failed. Scoped checks `rustfmt --check src/git_worktree.rs tests/git_worktree.rs` and `git diff --check -- src/git_worktree.rs tests/git_worktree.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
+- 2026-05-29: Task 3 follow-up commit evidence: `cebbefbed20dafc273a8c56a3b06e2ed3fecef0b`.
 
 ---
 
