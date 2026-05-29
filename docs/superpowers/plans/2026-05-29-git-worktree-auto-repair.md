@@ -35,6 +35,7 @@
 - 2026-05-29: Task 2 Step 2 red test evidence: `cargo test --test git_worktree` failed as expected with unresolved import `codex_project_mover::git_worktree::build_plan_for_existing_project`.
 - 2026-05-29: Completed Task 2 Step 3; added `.git` inspection, `git worktree list --porcelain -z` command runner, and plan construction in `src/git_worktree.rs`.
 - 2026-05-29: Task 2 Step 4 evidence: `cargo test --test git_worktree` passed, 8 tests passed, 0 failed. Detection tests canonicalize temp repo paths before comparing because Git reports macOS temp worktrees under `/private/var` while `tempfile` returns `/var`.
+- 2026-05-29: Task 2 Step 5 commit evidence: `9b5d9598805c0e9cfffc401f273ddce21ed02f0a`; pre-commit verification `rustfmt --check src/git_worktree.rs tests/git_worktree.rs`, `git diff --check -- src/git_worktree.rs tests/git_worktree.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md`, and `cargo test --test git_worktree` passed.
 
 ---
 
@@ -473,7 +474,7 @@ cargo test --test git_worktree
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 2** _(in progress)_
+- [x] **Step 5: Commit Task 2**
 
 Run:
 
