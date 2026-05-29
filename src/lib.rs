@@ -3,6 +3,7 @@ pub mod cli;
 pub mod commands;
 pub mod discovery;
 pub mod error;
+pub mod git_worktree;
 pub mod model;
 pub mod pathing;
 pub mod process_guard;

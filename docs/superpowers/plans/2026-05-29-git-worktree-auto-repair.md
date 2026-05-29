@@ -24,7 +24,10 @@
 
 ## Execution Log
 
-- Not started.
+- 2026-05-29: Started Task 1.
+- 2026-05-29: Step 2 red test evidence: `cargo test --test git_worktree` failed as expected with unresolved import `codex_project_mover::git_worktree`.
+- 2026-05-29: Step 4 green test evidence: `cargo test --test git_worktree` passed, 2 tests passed, 0 failed.
+- 2026-05-29: Task 1 changed `src/git_worktree.rs`, `src/lib.rs`, `tests/git_worktree.rs`, and this plan file.
 
 ---
 
@@ -35,7 +38,7 @@
 - Modify: `src/lib.rs`
 - Create: `tests/git_worktree.rs`
 
-- [ ] **Step 1: Write failing parser and mapper tests**
+- [x] **Step 1: Write failing parser and mapper tests**
 
 Create `tests/git_worktree.rs` with this initial content:
 
@@ -96,7 +99,7 @@ fn maps_worktree_paths_under_old_root_to_new_root() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -106,7 +109,7 @@ cargo test --test git_worktree
 
 Expected: FAIL because `codex_project_mover::git_worktree` does not exist.
 
-- [ ] **Step 3: Add the module and minimal parser implementation**
+- [x] **Step 3: Add the module and minimal parser implementation**
 
 Create `src/git_worktree.rs` with:
 
@@ -238,7 +241,7 @@ Modify `src/lib.rs` by adding:
 pub mod git_worktree;
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run:
 
@@ -248,7 +251,7 @@ cargo test --test git_worktree
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 Run:
 
