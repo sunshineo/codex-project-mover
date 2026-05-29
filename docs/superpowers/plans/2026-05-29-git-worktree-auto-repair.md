@@ -63,6 +63,7 @@
 - 2026-05-29: Started Task 4 Step 4.
 - 2026-05-29: Task 4 Step 4 evidence: `cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder` passed, 1 test passed, 0 failed.
 - 2026-05-29: Started Task 4 Step 5.
+- 2026-05-29: Task 4 Step 5 commit evidence: `016f1485b2fb9da12e21f00c9eed6950dfe3c91d`; pre-commit verification `cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder`, `rustfmt --check src/commands/plan.rs tests/cli.rs`, and `git diff --check -- src/commands/plan.rs tests/cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
 
 ---
 
@@ -821,7 +822,7 @@ cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 4**
+- [x] **Step 5: Commit Task 4**
 
 Run:
 
