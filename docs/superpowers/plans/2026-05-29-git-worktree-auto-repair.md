@@ -49,6 +49,7 @@
 - 2026-05-29: Started Task 3 Step 4.
 - 2026-05-29: Task 3 Step 4 evidence: `cargo test --test git_worktree` passed, 15 tests passed, 0 failed.
 - 2026-05-29: Started Task 3 Step 5.
+- 2026-05-29: Task 3 Step 5 commit evidence: `def99eb8b4c15eb8a04b47d034de4dc751bde0dd`; pre-commit verification `cargo fmt --check`, `git diff --check -- src/git_worktree.rs tests/git_worktree.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md`, and `cargo test --test git_worktree` passed.
 
 ---
 
@@ -699,7 +700,7 @@ cargo test --test git_worktree
 
 Expected: PASS.
 
-- [~] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 Run:
 
