@@ -154,6 +154,8 @@ fn run_git_os(cwd: &Path, args: &[OsString]) -> Result<Output> {
     let command_label = git_command_label(args);
     let output = Command::new("git")
         .current_dir(cwd)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
         .args(args)
         .output()
         .with_context(|| format!("failed to spawn `{command_label}` in {}", cwd.display()))?;
@@ -209,6 +211,11 @@ pub fn move_linked_worktree(plan: &GitWorktreePlan) -> Result<()> {
     run_git_os(&cwd, &args).map(|_| ())
 }
 
+/// Verifies the Git worktree snapshot already stored in `plan.entries`.
+///
+/// This function does not refresh Git worktree metadata after a move or repair.
+/// Call `verify_git_from_new_path` after Git operations that are expected to
+/// rewrite worktree paths.
 pub fn verify_git_worktree_state(plan: &GitWorktreePlan) -> Result<()> {
     if plan.kind == GitWorktreeKind::NotGit {
         return Ok(());
@@ -239,6 +246,9 @@ pub fn verify_git_worktree_state(plan: &GitWorktreePlan) -> Result<()> {
 
 pub fn verify_git_from_new_path(old: &Path, new: &Path) -> Result<()> {
     let mut plan = build_plan_for_existing_project(new, new)?;
+    if plan.kind == GitWorktreeKind::NotGit {
+        bail!("new path is not a Git worktree: {}", new.display());
+    }
     plan.project_path = old.to_path_buf();
     verify_git_worktree_state(&plan)
 }
@@ -248,15 +258,34 @@ fn main_worktree_cwd(plan: &GitWorktreePlan) -> Result<PathBuf> {
 
     plan.entries
         .iter()
-        .find(|entry| normalize_path_for_compare(&entry.path) != project_path && !entry.bare)
+        .find(|entry| {
+            normalize_path_for_compare(&entry.path) != project_path
+                && !entry.bare
+                && is_usable_git_cwd(&entry.path)
+        })
         .map(|entry| entry.path.clone())
         .or_else(|| {
             plan.entries
                 .iter()
+                .find(|entry| entry.bare && is_usable_git_cwd(&entry.path))
+                .map(|entry| entry.path.clone())
+        })
+        .or_else(|| {
+            plan.entries
+                .iter()
                 .find(|entry| normalize_path_for_compare(&entry.path) == project_path)
-                .and_then(|_| plan.project_path.parent().map(Path::to_path_buf))
+                .and_then(|_| {
+                    plan.project_path
+                        .parent()
+                        .filter(|parent| is_usable_git_cwd(parent))
+                        .map(Path::to_path_buf)
+                })
         })
         .ok_or_else(|| anyhow::anyhow!("could not resolve a main Git worktree cwd"))
+}
+
+fn is_usable_git_cwd(path: &Path) -> bool {
+    path.join(".git").exists() || (path.join("HEAD").is_file() && path.join("objects").is_dir())
 }
 
 pub fn parse_worktree_list(bytes: &[u8]) -> Result<Vec<WorktreeEntry>> {

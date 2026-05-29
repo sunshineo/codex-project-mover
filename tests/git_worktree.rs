@@ -2,8 +2,8 @@ use std::{fs, path::Path, process::Command};
 
 use codex_project_mover::git_worktree::{
     build_plan_for_existing_project, map_worktree_paths, move_linked_worktree, parse_worktree_list,
-    repair_main_worktree_after_copy, verify_git_worktree_state, GitWorktreeKind, GitWorktreePlan,
-    WorktreePathMove,
+    repair_main_worktree_after_copy, verify_git_from_new_path, verify_git_worktree_state,
+    GitWorktreeKind, GitWorktreePlan, WorktreePathMove,
 };
 use tempfile::tempdir;
 
@@ -332,6 +332,44 @@ fn moves_linked_worktree_with_git_command() {
 }
 
 #[test]
+fn moves_linked_worktree_from_bare_backed_repository() {
+    if !git_available() {
+        eprintln!(
+            "skipping moves_linked_worktree_from_bare_backed_repository because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let seed = temp.path().join("seed");
+    let bare = temp.path().join("repo.git");
+    let linked = temp.path().join("linked");
+    let new_linked = temp.path().join("nested/moved-linked");
+    init_repo(&seed);
+    git(&seed, &["branch", "-M", "main"]);
+    git(
+        temp.path(),
+        &[
+            "clone",
+            "--bare",
+            seed.to_str().unwrap(),
+            bare.to_str().unwrap(),
+        ],
+    );
+    git(
+        &bare,
+        &["worktree", "add", linked.to_str().unwrap(), "main"],
+    );
+
+    let plan = build_plan_for_existing_project(&linked, &new_linked).unwrap();
+    move_linked_worktree(&plan).unwrap();
+
+    assert!(!linked.exists());
+    assert!(new_linked.exists());
+    git(&new_linked, &["status", "--short"]);
+}
+
+#[test]
 fn verifies_git_state_rejects_old_worktree_path() {
     let plan = codex_project_mover::git_worktree::GitWorktreePlan {
         kind: GitWorktreeKind::MainWorktree,
@@ -347,6 +385,76 @@ fn verifies_git_state_rejects_old_worktree_path() {
     let error = verify_git_worktree_state(&plan).unwrap_err().to_string();
 
     assert!(error.contains("old Git worktree path remains"));
+}
+
+#[test]
+fn verify_git_from_new_path_rejects_non_git_new_path() {
+    let temp = tempdir().unwrap();
+    let old = temp.path().join("old");
+    let new = temp.path().join("new");
+    fs::create_dir_all(&new).unwrap();
+
+    let error = verify_git_from_new_path(&old, &new)
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("not a Git worktree"));
+}
+
+#[test]
+fn verify_git_from_new_path_succeeds_after_linked_worktree_move() {
+    if !git_available() {
+        eprintln!(
+            "skipping verify_git_from_new_path_succeeds_after_linked_worktree_move because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let main = temp.path().join("repo");
+    let linked = temp.path().join("linked");
+    let new_linked = temp.path().join("nested/moved-linked");
+    init_repo(&main);
+    git(
+        &main,
+        &["worktree", "add", linked.to_str().unwrap(), "-b", "feature"],
+    );
+
+    let plan = build_plan_for_existing_project(&linked, &new_linked).unwrap();
+    move_linked_worktree(&plan).unwrap();
+
+    verify_git_from_new_path(&linked, &new_linked).unwrap();
+}
+
+#[test]
+fn repair_main_worktree_after_copy_repairs_nested_linked_worktree() {
+    if !git_available() {
+        eprintln!(
+            "skipping repair_main_worktree_after_copy_repairs_nested_linked_worktree because git is unavailable"
+        );
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let main = temp.path().join("repo");
+    let linked_parent = main.join(".worktrees");
+    let linked = linked_parent.join("feature");
+    let new_main = temp.path().join("moved/repo");
+    let new_linked = new_main.join(".worktrees/feature");
+    init_repo(&main);
+    fs::create_dir_all(&linked_parent).unwrap();
+    git(
+        &main,
+        &["worktree", "add", linked.to_str().unwrap(), "-b", "feature"],
+    );
+
+    let plan = build_plan_for_existing_project(&main, &new_main).unwrap();
+    fs::create_dir_all(new_main.parent().unwrap()).unwrap();
+    fs::rename(&main, &new_main).unwrap();
+    repair_main_worktree_after_copy(&plan).unwrap();
+
+    git(&new_main, &["status", "--short"]);
+    git(&new_linked, &["status", "--short"]);
 }
 
 #[test]
