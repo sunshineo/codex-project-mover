@@ -201,7 +201,7 @@ pub fn move_linked_worktree(plan: &GitWorktreePlan) -> Result<()> {
             .with_context(|| format!("failed to create {}", parent.display()))?;
     }
 
-    let cwd = main_worktree_cwd(plan)?;
+    let cwd = linked_worktree_move_cwd(plan)?;
     let args = vec![
         OsString::from("worktree"),
         OsString::from("move"),
@@ -209,6 +209,10 @@ pub fn move_linked_worktree(plan: &GitWorktreePlan) -> Result<()> {
         plan.new_project_path.as_os_str().to_os_string(),
     ];
     run_git_os(&cwd, &args).map(|_| ())
+}
+
+pub fn linked_worktree_move_cwd(plan: &GitWorktreePlan) -> Result<PathBuf> {
+    main_worktree_cwd(plan)
 }
 
 /// Verifies the Git worktree snapshot already stored in `plan.entries`.

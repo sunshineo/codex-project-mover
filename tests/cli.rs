@@ -1,12 +1,55 @@
 use assert_cmd::Command;
 use predicates::str::contains;
-use std::fs;
+use std::{fs, path::Path, process::Command as StdCommand};
 use tempfile::tempdir;
 
 fn mover() -> Command {
     let mut cmd = Command::cargo_bin("codex-project-mover").unwrap();
     cmd.env("CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD", "1");
     cmd
+}
+
+fn git_available() -> bool {
+    StdCommand::new("git")
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+fn git(cwd: &Path, args: &[&str]) {
+    let output = StdCommand::new("git")
+        .current_dir(cwd)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .args([
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "init.templateDir=",
+        ])
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "git {:?} failed\nstdout:\n{}\nstderr:\n{}",
+        args,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn init_repo(path: &Path) {
+    fs::create_dir_all(path).unwrap();
+    git(path, &["init"]);
+    git(path, &["config", "user.email", "test@example.com"]);
+    git(path, &["config", "user.name", "Test User"]);
+    fs::write(path.join("README.md"), "hello\n").unwrap();
+    git(path, &["add", "README.md"]);
+    git(path, &["commit", "-m", "initial"]);
 }
 
 #[test]
@@ -328,4 +371,86 @@ fn plan_reports_no_git_worktree_repair_for_plain_folder() {
         .assert()
         .success()
         .stdout(contains("Git worktree: none detected"));
+}
+
+#[test]
+fn plan_reports_main_worktree_repair_paths() {
+    if !git_available() {
+        eprintln!("skipping plan_reports_main_worktree_repair_paths because git is unavailable");
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let root = fs::canonicalize(temp.path()).unwrap();
+    let home = root.join(".codex");
+    let old = root.join("repo");
+    let linked_parent = old.join(".worktrees");
+    let linked = linked_parent.join("feature");
+    let new = root.join("moved/repo");
+    let new_linked = new.join(".worktrees/feature");
+    fs::create_dir_all(&home).unwrap();
+    init_repo(&old);
+    fs::create_dir_all(&linked_parent).unwrap();
+    git(
+        &old,
+        &["worktree", "add", linked.to_str().unwrap(), "-b", "feature"],
+    );
+
+    mover()
+        .args([
+            "plan",
+            "--old",
+            old.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(contains(format!(
+            "Git repair: git -C {} worktree repair {}",
+            new.display(),
+            new_linked.display()
+        )));
+}
+
+#[test]
+fn plan_reports_linked_worktree_move_cwd() {
+    if !git_available() {
+        eprintln!("skipping plan_reports_linked_worktree_move_cwd because git is unavailable");
+        return;
+    }
+
+    let temp = tempdir().unwrap();
+    let root = fs::canonicalize(temp.path()).unwrap();
+    let home = root.join(".codex");
+    let main = root.join("repo");
+    let linked = root.join("linked");
+    let new = root.join("moved-linked");
+    fs::create_dir_all(&home).unwrap();
+    init_repo(&main);
+    git(
+        &main,
+        &["worktree", "add", linked.to_str().unwrap(), "-b", "feature"],
+    );
+
+    mover()
+        .args([
+            "plan",
+            "--old",
+            linked.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(contains(format!(
+            "Git move: git -C {} worktree move {} {}",
+            main.display(),
+            linked.display(),
+            new.display()
+        )));
 }

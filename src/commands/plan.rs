@@ -1,7 +1,9 @@
 use anyhow::Result;
 
 use crate::cli::MoveArgs;
-use crate::git_worktree::{build_plan_for_existing_project, GitWorktreeKind};
+use crate::git_worktree::{
+    build_plan_for_existing_project, linked_worktree_move_cwd, GitWorktreeKind,
+};
 use crate::pathing::{codex_home_from_arg, normalize_project_path};
 use crate::process_guard::assert_no_codex_processes;
 use crate::scanner::scan_codex_home;
@@ -42,14 +44,25 @@ pub fn run(args: MoveArgs) -> Result<()> {
                     path_move.new_path.display()
                 );
             }
-            println!("Git repair: git -C {} worktree repair", new.display());
+            let repair_paths = git_plan.repair_paths();
+            let repair_path_args = repair_paths
+                .iter()
+                .map(|path| format!(" {}", path.display()))
+                .collect::<String>();
+            println!(
+                "Git repair: git -C {} worktree repair{}",
+                git_plan.new_project_path.display(),
+                repair_path_args
+            );
         }
         GitWorktreeKind::LinkedWorktree => {
             println!("Git worktree: linked worktree");
+            let cwd = linked_worktree_move_cwd(&git_plan)?;
             println!(
-                "Git move: git worktree move {} {}",
-                old.display(),
-                new.display()
+                "Git move: git -C {} worktree move {} {}",
+                cwd.display(),
+                git_plan.project_path.display(),
+                git_plan.new_project_path.display()
             );
         }
     }

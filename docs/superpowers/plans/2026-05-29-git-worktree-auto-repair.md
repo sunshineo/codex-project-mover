@@ -64,6 +64,11 @@
 - 2026-05-29: Task 4 Step 4 evidence: `cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder` passed, 1 test passed, 0 failed.
 - 2026-05-29: Started Task 4 Step 5.
 - 2026-05-29: Task 4 Step 5 commit evidence: `016f1485b2fb9da12e21f00c9eed6950dfe3c91d`; pre-commit verification `cargo test --test cli plan_reports_no_git_worktree_repair_for_plain_folder`, `rustfmt --check src/commands/plan.rs tests/cli.rs`, and `git diff --check -- src/commands/plan.rs tests/cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
+- 2026-05-29: Started Task 4 quality fix for executable Git worktree plan commands.
+- 2026-05-29: Task 4 quality fix red test evidence: `cargo test --test cli plan_reports_` failed as expected; `plan_reports_main_worktree_repair_paths` showed the main-worktree repair command omitted the mapped linked repair path, and `plan_reports_linked_worktree_move_cwd` showed the linked move command omitted `git -C <cwd>`.
+- 2026-05-29: Task 4 quality fix green evidence: `cargo test --test cli plan_reports_` passed, 4 tests passed, 0 failed.
+- 2026-05-29: Task 4 quality fix changed `src/commands/plan.rs`, `src/git_worktree.rs`, `tests/cli.rs`, and this plan file.
+- 2026-05-29: Task 4 quality fix pre-commit verification evidence: `cargo test --test cli` passed, 12 tests passed, 0 failed; `cargo test --test git_worktree` passed, 19 tests passed, 0 failed; `rustfmt --check src/commands/plan.rs src/git_worktree.rs tests/cli.rs` passed; `git diff --check -- src/commands/plan.rs src/git_worktree.rs tests/cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
 
 ---
 
