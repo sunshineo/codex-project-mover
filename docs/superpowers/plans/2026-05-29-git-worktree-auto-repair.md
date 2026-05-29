@@ -69,6 +69,18 @@
 - 2026-05-29: Task 4 quality fix green evidence: `cargo test --test cli plan_reports_` passed, 4 tests passed, 0 failed.
 - 2026-05-29: Task 4 quality fix changed `src/commands/plan.rs`, `src/git_worktree.rs`, `tests/cli.rs`, and this plan file.
 - 2026-05-29: Task 4 quality fix pre-commit verification evidence: `cargo test --test cli` passed, 12 tests passed, 0 failed; `cargo test --test git_worktree` passed, 19 tests passed, 0 failed; `rustfmt --check src/commands/plan.rs src/git_worktree.rs tests/cli.rs` passed; `git diff --check -- src/commands/plan.rs src/git_worktree.rs tests/cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed.
+- 2026-05-29: Started Task 5 Step 1.
+- 2026-05-29: Completed Task 5 Step 1; added CLI integration tests in `tests/git_worktree_cli.rs`.
+- 2026-05-29: Started Task 5 Step 2.
+- 2026-05-29: Task 5 Step 2 red test evidence: `cargo test --test git_worktree_cli` failed as expected because normal `apply` used the old copy-and-trash flow and did not print `Git worktree repair complete` or `Git worktree move complete`.
+- 2026-05-29: Started Task 5 Step 3.
+- 2026-05-29: Completed Task 5 Step 3; normal `apply` now branches on Git worktree kind before metadata updates.
+- 2026-05-29: Started Task 5 Step 4.
+- 2026-05-29: Task 5 Step 4 evidence: `cargo test --test git_worktree_cli` passed, 2 tests passed, 0 failed.
+- 2026-05-29: Task 5 changed `src/commands/apply.rs`, `tests/git_worktree_cli.rs`, and this plan file.
+- 2026-05-29: Task 5 pre-commit verification evidence: `rustfmt --check src/commands/apply.rs tests/git_worktree_cli.rs` passed; `git diff --check -- src/commands/apply.rs tests/git_worktree_cli.rs docs/superpowers/plans/2026-05-29-git-worktree-auto-repair.md` passed; `cargo test --test git_worktree_cli` passed, 2 tests passed, 0 failed; `cargo test --test cli apply_normal_move_copies_updates_and_moves_old_folder_to_test_trash` passed, 1 test passed, 0 failed.
+- 2026-05-29: Started Task 5 Step 5.
+- 2026-05-29: Completed Task 5 Step 5; staged Task 5 files for `feat: auto repair git worktrees during apply`.
 
 ---
 
@@ -846,7 +858,7 @@ Record the commit hash and test result in the Execution Log.
 - Modify: `src/commands/apply.rs`
 - Create: `tests/git_worktree_cli.rs`
 
-- [ ] **Step 1: Add CLI integration tests for main and linked worktrees**
+- [x] **Step 1: Add CLI integration tests for main and linked worktrees**
 
 Create `tests/git_worktree_cli.rs` with:
 
@@ -994,7 +1006,7 @@ fn apply_moves_linked_worktree_with_git_worktree_move() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -1004,7 +1016,7 @@ cargo test --test git_worktree_cli
 
 Expected: FAIL because `apply` does not call Git repair or linked worktree move yet.
 
-- [ ] **Step 3: Update `apply` imports and branch on Git kind**
+- [x] **Step 3: Update `apply` imports and branch on Git kind**
 
 Modify `src/commands/apply.rs` imports:
 
@@ -1082,7 +1094,7 @@ Update the final success message branch:
     }
 ```
 
-- [ ] **Step 4: Run apply Git integration tests**
+- [x] **Step 4: Run apply Git integration tests**
 
 Run:
 
@@ -1092,7 +1104,7 @@ cargo test --test git_worktree_cli
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 5**
+- [x] **Step 5: Commit Task 5**
 
 Run:
 

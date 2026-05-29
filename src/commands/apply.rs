@@ -5,6 +5,10 @@ use anyhow::{bail, Context, Result};
 
 use crate::backup::create_metadata_backup;
 use crate::cli::ApplyArgs;
+use crate::git_worktree::{
+    build_plan_for_existing_project, move_linked_worktree, repair_main_worktree_after_copy,
+    verify_git_from_new_path, GitWorktreeKind,
+};
 use crate::pathing::{codex_home_from_arg, normalize_project_path};
 use crate::process_guard::assert_no_codex_processes;
 use crate::project_copy::{copy_project_tree, verify_project_tree};
@@ -37,10 +41,37 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         &changed_files,
     )?;
 
+    let git_plan = if args.relink_only {
+        None
+    } else {
+        Some(build_plan_for_existing_project(&old, &new)?)
+    };
+
     if !args.relink_only {
-        copy_project_tree(&old, &new)?;
-        verify_project_tree(&old, &new)
-            .with_context(|| "copied project tree failed verification; metadata was not changed and old folder was not moved to Trash")?;
+        match git_plan.as_ref() {
+            Some(plan) if plan.kind == GitWorktreeKind::LinkedWorktree => {
+                move_linked_worktree(plan)?;
+                verify_git_from_new_path(&old, &new).with_context(|| {
+                    "Git worktree verification failed after move; metadata was not changed"
+                })?;
+                println!("Git worktree move complete");
+            }
+            Some(plan) if plan.kind == GitWorktreeKind::MainWorktree => {
+                copy_project_tree(&old, &new)?;
+                verify_project_tree(&old, &new)
+                    .with_context(|| "copied project tree failed verification; metadata was not changed and old folder was not moved to Trash")?;
+                repair_main_worktree_after_copy(plan)?;
+                verify_git_from_new_path(&old, &new).with_context(|| {
+                    "Git worktree verification failed after repair; metadata was not changed and old folder was not moved to Trash"
+                })?;
+                println!("Git worktree repair complete");
+            }
+            Some(_) | None => {
+                copy_project_tree(&old, &new)?;
+                verify_project_tree(&old, &new)
+                    .with_context(|| "copied project tree failed verification; metadata was not changed and old folder was not moved to Trash")?;
+            }
+        }
     }
 
     let changed = update_codex_home(&codex_home, &old_str, &new_str)?;
@@ -64,7 +95,12 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         );
     }
 
-    if !args.relink_only {
+    if !args.relink_only
+        && !matches!(
+            git_plan.as_ref().map(|plan| &plan.kind),
+            Some(GitWorktreeKind::LinkedWorktree)
+        )
+    {
         move_to_trash(&old)?;
     }
 
@@ -72,6 +108,11 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     println!("updated {} metadata reference(s)", changed);
     if args.relink_only {
         println!("relink-only complete: project folder was not moved");
+    } else if matches!(
+        git_plan.as_ref().map(|plan| &plan.kind),
+        Some(GitWorktreeKind::LinkedWorktree)
+    ) {
+        println!("move complete: linked Git worktree moved with git worktree move");
     } else {
         println!("move complete: old project folder moved to Trash");
     }
