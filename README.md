@@ -36,3 +36,7 @@ cargo build --release
 ```
 
 The first release target is Apple Silicon macOS. Intel macOS can be added with a second release artifact after the v1 workflow is stable.
+
+## License
+
+Licensed under the Apache License, Version 2.0.
