@@ -4,18 +4,6 @@
 
 ## Installation
 
-### Homebrew
-
-After the v1 Homebrew tap is published:
-
-```bash
-brew tap sunshineo/tap
-brew install codex-project-mover
-codex-project-mover --version
-```
-
-The v1 formula builds from the tagged source release with Cargo. That avoids the browser-quarantine path for the raw GitHub binary, but it means Homebrew may install Rust as a build dependency.
-
 ### Build From Source
 
 With Rust 1.78 or newer installed:
@@ -63,6 +51,8 @@ mv codex-project-mover-aarch64-apple-darwin "$HOME/.local/bin/codex-project-move
 ```
 
 Make sure `$HOME/.local/bin` is in your shell `PATH` before running `codex-project-mover`.
+
+Homebrew packaging is planned after v1. A formula can point at the immutable `v1.0.0` tag after the release exists.
 
 ## Commands
 

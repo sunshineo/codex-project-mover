@@ -19,9 +19,9 @@ automation exists.
 ## Release Checklist
 
 1. Confirm the working tree is clean.
-2. Confirm `README.md` documents Homebrew, source-build, and direct GitHub
-   binary installation, including checksum verification and unsigned macOS
-   quarantine handling.
+2. Confirm `README.md` documents source-build and direct GitHub binary
+   installation, including checksum verification and unsigned macOS quarantine
+   handling. Homebrew should remain documented only as post-v1.
 3. Run:
 
    ```bash
@@ -55,19 +55,14 @@ automation exists.
    cp target/release/codex-project-mover dist/codex-project-mover-aarch64-apple-darwin
    file dist/codex-project-mover-aarch64-apple-darwin
    (cd dist && shasum -a 256 codex-project-mover-aarch64-apple-darwin > codex-project-mover-aarch64-apple-darwin.sha256)
-   git archive --format=tar.gz --prefix=codex-project-mover-1.0.0/ v1.0.0 > dist/codex-project-mover-1.0.0.tar.gz
-   (cd dist && shasum -a 256 codex-project-mover-1.0.0.tar.gz > codex-project-mover-1.0.0.tar.gz.sha256)
    ```
 
 7. Push the branch and tag, then wait for the release commit's CI run on
    `main` to pass before publishing the GitHub release.
 8. Before using GitHub CLI release commands, run `gh auth status`. If `gh` is
    unavailable or unauthenticated, create the release from the GitHub web UI.
-9. Create a GitHub release with the binary, source archive, and checksum files
-   attached. Release notes must mention that the binary is unsigned and
-   unnotarized.
-10. Publish or update the `sunshineo/tap` Homebrew formula from the release
-   source archive and verify `brew install sunshineo/tap/codex-project-mover`.
+9. Create a GitHub release with the binary and checksum attached. Release notes
+   must mention that the binary is unsigned and unnotarized.
 
 ## Abort And Cleanup
 
@@ -104,22 +99,7 @@ xattr -d com.apple.quarantine ./codex-project-mover-aarch64-apple-darwin
 The release notes should mention this, along with the alternative Finder path:
 right-click Open or System Settings > Privacy & Security > Open Anyway.
 
-## Homebrew Tap
-
-The v1 Homebrew formula should build from the release source archive instead of
-installing the raw unsigned binary. Use `dist/codex-project-mover-1.0.0.tar.gz`
-as the formula URL source and `dist/codex-project-mover-1.0.0.tar.gz.sha256`
-for its checksum.
-
-The formula should install with Cargo:
-
-```ruby
-depends_on "rust" => :build
-
-def install
-  system "cargo", "install", *std_cargo_args
-end
-```
-
 Post-v1 release improvements can add GitHub Actions release automation,
-additional macOS architectures, Homebrew bottles, and machine-readable output.
+additional macOS architectures, Homebrew packaging, and machine-readable output.
+The Homebrew formula can be published after v1.0.0 using GitHub's immutable tag
+tarball at `https://github.com/sunshineo/codex-project-mover/archive/refs/tags/v1.0.0.tar.gz`.
