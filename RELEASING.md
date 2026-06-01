@@ -116,6 +116,9 @@ build with Homebrew's Rust toolchain. Do not add Intel macOS, Linux, or older
 macOS bottles until those platforms are verified and part of the supported CLI
 contract.
 
+See `docs/homebrew-packaging.md` for the tap model, bottle compatibility notes,
+runner mapping, and verification commands.
+
 The formula should point at immutable source tag tarballs such as
 `https://github.com/sunshineo/codex-project-mover/archive/refs/tags/v1.0.0.tar.gz`.
 Packaging-only tap updates do not require a new `codex-project-mover` release
