@@ -11,8 +11,9 @@ brew install sunshineo/tap/codex-project-mover
 codex-project-mover --version
 ```
 
-The Homebrew formula currently supports Apple Silicon macOS. The published
-bottle targets Homebrew's current Apple Silicon macOS runner.
+The Homebrew formula currently supports Apple Silicon macOS. The tap publishes
+one Sonoma Apple Silicon bottle, which Homebrew can use on newer Apple Silicon
+macOS releases without source-building Rust.
 
 ### Build From Source
 
