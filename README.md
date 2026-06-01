@@ -2,6 +2,68 @@
 
 `codex-project-mover` is a Mac-first CLI for moving a Codex Desktop project folder and updating local Codex metadata so existing conversations continue to point at the new path.
 
+## Installation
+
+### Homebrew
+
+After the v1 Homebrew tap is published:
+
+```bash
+brew tap sunshineo/tap
+brew install codex-project-mover
+codex-project-mover --version
+```
+
+The v1 formula builds from the tagged source release with Cargo. That avoids the browser-quarantine path for the raw GitHub binary, but it means Homebrew may install Rust as a build dependency.
+
+### Build From Source
+
+With Rust 1.78 or newer installed:
+
+```bash
+cargo install --locked --git https://github.com/sunshineo/codex-project-mover --tag v1.0.0
+codex-project-mover --version
+```
+
+From a local checkout:
+
+```bash
+git clone https://github.com/sunshineo/codex-project-mover.git
+cd codex-project-mover
+git checkout v1.0.0
+cargo build --release --locked
+./target/release/codex-project-mover --help
+./target/release/codex-project-mover --version
+```
+
+### GitHub Release Binary
+
+The first prebuilt release target is Apple Silicon macOS.
+
+```bash
+curl -LO https://github.com/sunshineo/codex-project-mover/releases/download/v1.0.0/codex-project-mover-aarch64-apple-darwin
+curl -LO https://github.com/sunshineo/codex-project-mover/releases/download/v1.0.0/codex-project-mover-aarch64-apple-darwin.sha256
+shasum -a 256 -c codex-project-mover-aarch64-apple-darwin.sha256
+chmod +x codex-project-mover-aarch64-apple-darwin
+xattr -d com.apple.quarantine ./codex-project-mover-aarch64-apple-darwin 2>/dev/null || true
+./codex-project-mover-aarch64-apple-darwin --version
+```
+
+This v1 binary is unsigned and unnotarized. If macOS blocks it after download, the `xattr` command above removes the quarantine attribute:
+
+```bash
+xattr -d com.apple.quarantine ./codex-project-mover-aarch64-apple-darwin
+```
+
+To install the binary somewhere on your `PATH`:
+
+```bash
+mkdir -p "$HOME/.local/bin"
+mv codex-project-mover-aarch64-apple-darwin "$HOME/.local/bin/codex-project-mover"
+```
+
+Make sure `$HOME/.local/bin` is in your shell `PATH` before running `codex-project-mover`.
+
 ## Commands
 
 ```bash
@@ -33,15 +95,15 @@ Verify checks that supported old-path references are gone and supported new-path
 
 Rollback restores Codex metadata from a backup manifest. `--backup` accepts either the backup directory printed by `apply` or the `manifest.json` file inside it. If the tool created the new project folder during normal apply, rollback moves that new folder to Trash. It does not restore the old folder from Trash.
 
-## Build
+## Build From Checkout
 
 ```bash
-cargo build --release
+cargo build --release --locked
 ./target/release/codex-project-mover --help
 ./target/release/codex-project-mover --version
 ```
 
-The first release target is Apple Silicon macOS. Intel macOS can be added with a second release artifact after the v1 workflow is stable.
+Intel macOS can be added with a second release artifact after the v1 workflow is stable.
 
 ## License
 

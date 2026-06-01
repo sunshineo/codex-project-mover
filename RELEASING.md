@@ -19,34 +19,107 @@ automation exists.
 ## Release Checklist
 
 1. Confirm the working tree is clean.
-2. Run:
+2. Confirm `README.md` documents Homebrew, source-build, and direct GitHub
+   binary installation, including checksum verification and unsigned macOS
+   quarantine handling.
+3. Run:
 
    ```bash
    cargo fmt --check
    cargo clippy --all-targets -- -D warnings
    cargo test
-   cargo build --release
+   mkdir -p /tmp/codex-project-mover-release
+   TMPDIR=/tmp/codex-project-mover-release cargo test --test git_worktree
+   rustup toolchain install 1.78.0
+   cargo +1.78.0 build --locked
+   cargo build --release --locked
    ./target/release/codex-project-mover --version
    ```
 
-3. Update `Cargo.toml` to the release version, such as `1.0.0`, and commit it.
-4. Create an annotated tag:
+4. Update `Cargo.toml` to the release version, such as `1.0.0`, run
+   `cargo check` so `Cargo.lock` records the new package version, then commit
+   both files.
+5. Create an annotated tag:
 
    ```bash
    git tag -a v1.0.0 -m "Release v1.0.0"
    ```
 
-5. Build the Apple Silicon macOS artifact:
+6. Build the Apple Silicon macOS artifact:
 
    ```bash
-   cargo build --release
+   git describe --exact-match --tags HEAD
+   test "$(uname -m)" = "arm64"
+   cargo build --release --locked
    mkdir -p dist
    cp target/release/codex-project-mover dist/codex-project-mover-aarch64-apple-darwin
-   shasum -a 256 dist/codex-project-mover-aarch64-apple-darwin > dist/codex-project-mover-aarch64-apple-darwin.sha256
+   file dist/codex-project-mover-aarch64-apple-darwin
+   (cd dist && shasum -a 256 codex-project-mover-aarch64-apple-darwin > codex-project-mover-aarch64-apple-darwin.sha256)
+   git archive --format=tar.gz --prefix=codex-project-mover-1.0.0/ v1.0.0 > dist/codex-project-mover-1.0.0.tar.gz
+   (cd dist && shasum -a 256 codex-project-mover-1.0.0.tar.gz > codex-project-mover-1.0.0.tar.gz.sha256)
    ```
 
-6. Push the branch and tag, then create a GitHub release with the binary and
-   checksum attached.
+7. Push the branch and tag, then wait for the release commit's CI run on
+   `main` to pass before publishing the GitHub release.
+8. Before using GitHub CLI release commands, run `gh auth status`. If `gh` is
+   unavailable or unauthenticated, create the release from the GitHub web UI.
+9. Create a GitHub release with the binary, source archive, and checksum files
+   attached. Release notes must mention that the binary is unsigned and
+   unnotarized.
+10. Publish or update the `sunshineo/tap` Homebrew formula from the release
+   source archive and verify `brew install sunshineo/tap/codex-project-mover`.
+
+## Abort And Cleanup
+
+If the release fails before anything is pushed, delete the local tag and either
+fix forward or reset the local release commit:
+
+```bash
+git tag -d v1.0.0
+git reset --hard HEAD~1
+```
+
+If the tag or release has already been pushed, remove the public release state
+before retrying:
+
+```bash
+gh release delete v1.0.0 --yes
+git push origin :refs/tags/v1.0.0
+git tag -d v1.0.0
+git revert <release-commit>
+```
+
+If users may already have consumed the tag or artifact, do not rewrite `v1.0.0`;
+publish a fixed follow-up release instead.
+
+## Unsigned macOS Binary
+
+The v1 binary is unsigned and unnotarized. Users may need to remove the macOS
+quarantine attribute after downloading from GitHub:
+
+```bash
+xattr -d com.apple.quarantine ./codex-project-mover-aarch64-apple-darwin
+```
+
+The release notes should mention this, along with the alternative Finder path:
+right-click Open or System Settings > Privacy & Security > Open Anyway.
+
+## Homebrew Tap
+
+The v1 Homebrew formula should build from the release source archive instead of
+installing the raw unsigned binary. Use `dist/codex-project-mover-1.0.0.tar.gz`
+as the formula URL source and `dist/codex-project-mover-1.0.0.tar.gz.sha256`
+for its checksum.
+
+The formula should install with Cargo:
+
+```ruby
+depends_on "rust" => :build
+
+def install
+  system "cargo", "install", *std_cargo_args
+end
+```
 
 Post-v1 release improvements can add GitHub Actions release automation,
-additional macOS architectures, Homebrew packaging, and machine-readable output.
+additional macOS architectures, Homebrew bottles, and machine-readable output.
