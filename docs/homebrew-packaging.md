@@ -164,6 +164,117 @@ temporary Codex home and `CODEX_PROJECT_MOVER_TEST_TRASH_DIR`, then run
 `verify`. This exercises the actual packaged binary without touching real Codex
 projects.
 
+## Release Gate For New Versions
+
+Use this gate for every upstream release that should be installable through
+Homebrew. The intent is to prove the release works on the oldest supported
+Apple Silicon runner before treating the release as ready.
+
+The Homebrew formula must point at an immutable source tag, so the source tag
+needs to exist before the tap can build the bottle. Treat the release as
+unfinished until this gate passes.
+
+1. Finish the upstream release commit and version bump.
+2. Run the normal project release checks from `RELEASING.md`.
+3. Push the release branch and tag so the immutable source tarball exists.
+4. Confirm the upstream project CI passes on the oldest supported Apple Silicon
+   runner. Today that is `macos-14`.
+5. Update the tap formula to the new tag tarball and source SHA-256.
+6. Keep the bottle policy Sonoma-only unless the support policy changes:
+   - tap workflow runner: `macos-14`
+   - bottle tag: `arm64_sonoma`
+   - no `--keep-old` in the bottle build command
+7. Open the tap PR and wait for `brew test-bot` to build and test the formula
+   on the oldest supported runner.
+8. If the `macos-14` build fails, stop the release. Do not fall back to a newer
+   runner just because Tahoe works locally. Either fix Sonoma support, formally
+   change the minimum supported macOS, or use a self-hosted runner for the older
+   target.
+9. Publish the bottle through the tap workflow.
+10. On a newer local Apple Silicon Mac, reinstall from Homebrew and confirm it
+    pours the oldest-runner bottle rather than source-building:
+
+    ```bash
+    brew update
+    brew reinstall sunshineo/tap/codex-project-mover
+    ```
+
+    Expected output includes:
+
+    ```text
+    Pouring codex-project-mover-<version>.arm64_sonoma.bottle.<rebuild>.tar.gz
+    ```
+
+11. Inspect the install receipt:
+
+    ```bash
+    jq '{built_as_bottle, poured_from_bottle, runtime_dependencies, built_on}' \
+      /opt/homebrew/Cellar/codex-project-mover/<version>/INSTALL_RECEIPT.json
+    ```
+
+    Expected result:
+
+    - `built_as_bottle: true`
+    - `poured_from_bottle: true`
+    - `runtime_dependencies: []`
+    - `built_on.os_version` is macOS 14.x for the current Sonoma policy
+
+12. Run the Homebrew smoke test:
+
+    ```bash
+    brew test sunshineo/tap/codex-project-mover
+    ```
+
+13. Run a packaged-binary fake move test. This exercises `apply` and `verify`
+    without touching real Codex projects:
+
+    ```bash
+    set -euo pipefail
+
+    root=$(mktemp -d /tmp/codex-project-mover-bottle-e2e.XXXXXX)
+    home="$root/.codex"
+    old="$root/old-project"
+    new="$root/nested/new-project"
+    trash="$root/trash"
+
+    mkdir -p "$home/sessions" "$old/src"
+    printf 'fn main() {}\n' > "$old/src/main.rs"
+    printf '{"cwd":"%s"}\n' "$old" > "$home/sessions/thread.jsonl"
+
+    CODEX_PROJECT_MOVER_TEST_TRASH_DIR="$trash" \
+      /opt/homebrew/bin/codex-project-mover apply \
+        --old "$old" \
+        --new "$new" \
+        --codex-home "$home" \
+        --allow-running-codex
+
+    /opt/homebrew/bin/codex-project-mover verify \
+      --old "$old" \
+      --new "$new" \
+      --codex-home "$home" \
+      --allow-running-codex
+
+    test -f "$new/src/main.rs"
+    test ! -e "$old"
+    test -d "$trash/old-project"
+    rg -q "$new" "$home/sessions/thread.jsonl"
+    ! rg -q "$old" "$home/sessions/thread.jsonl"
+    ```
+
+14. Confirm the release asset list matches the support policy. For the current
+    policy, the Homebrew release should contain one bottle asset:
+
+    ```text
+    codex-project-mover-<version>.arm64_sonoma.bottle.<rebuild>.tar.gz
+    ```
+
+Only after this gate passes should the release be announced as ready for normal
+Homebrew users.
+
+If a failure happens before users have consumed the tag or release, remove the
+public release state and retry. If users may already have consumed it, do not
+rewrite history; publish a fixed follow-up release.
+
 ## Release Versioning
 
 Publishing or changing Homebrew bottle metadata does not require a new upstream

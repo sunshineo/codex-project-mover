@@ -19,9 +19,9 @@ automation exists.
 ## Release Checklist
 
 1. Confirm the working tree is clean.
-2. Confirm `README.md` documents source-build and direct GitHub binary
-   installation, including checksum verification and unsigned macOS quarantine
-   handling. Homebrew should remain documented only as post-v1.
+2. Confirm `README.md` documents Homebrew, source-build, and direct GitHub
+   binary installation, including checksum verification and unsigned macOS
+   quarantine handling.
 3. Run:
 
    ```bash
@@ -63,6 +63,9 @@ automation exists.
    unavailable or unauthenticated, create the release from the GitHub web UI.
 9. Create a GitHub release with the binary and checksum attached. Release notes
    must mention that the binary is unsigned and unnotarized.
+10. For every release that updates the Homebrew formula, complete the Homebrew
+    release gate in `docs/homebrew-packaging.md` before announcing the release
+    as ready for normal users.
 
 ## Abort And Cleanup
 
