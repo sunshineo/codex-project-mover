@@ -6,7 +6,7 @@
 
 ### Build From Source
 
-With Rust 1.78 or newer installed:
+With Rust 1.85 or newer installed:
 
 ```bash
 cargo install --locked --git https://github.com/sunshineo/codex-project-mover --tag v1.0.0

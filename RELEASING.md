@@ -30,8 +30,8 @@ automation exists.
    cargo test
    mkdir -p /tmp/codex-project-mover-release
    TMPDIR=/tmp/codex-project-mover-release cargo test --test git_worktree
-   rustup toolchain install 1.78.0
-   cargo +1.78.0 build --locked
+   rustup toolchain install 1.85.0
+   cargo +1.85.0 build --locked
    cargo build --release --locked
    ./target/release/codex-project-mover --version
    ```
