@@ -100,6 +100,18 @@ The release notes should mention this, along with the alternative Finder path:
 right-click Open or System Settings > Privacy & Security > Open Anyway.
 
 Post-v1 release improvements can add GitHub Actions release automation,
-additional macOS architectures, Homebrew packaging, and machine-readable output.
-The Homebrew formula can be published after v1.0.0 using GitHub's immutable tag
-tarball at `https://github.com/sunshineo/codex-project-mover/archive/refs/tags/v1.0.0.tar.gz`.
+additional macOS architectures, and machine-readable output.
+
+## Homebrew Tap
+
+The project is available through the public `sunshineo/homebrew-tap` repository:
+
+```bash
+brew install sunshineo/tap/codex-project-mover
+```
+
+The formula should point at immutable source tag tarballs such as
+`https://github.com/sunshineo/codex-project-mover/archive/refs/tags/v1.0.0.tar.gz`.
+Packaging-only tap updates do not require a new `codex-project-mover` release
+version. Bump the CLI version only when source behavior, package metadata, or
+release artifacts need a new upstream tag.

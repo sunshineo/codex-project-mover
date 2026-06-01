@@ -4,6 +4,13 @@
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew install sunshineo/tap/codex-project-mover
+codex-project-mover --version
+```
+
 ### Build From Source
 
 With Rust 1.85 or newer installed:
@@ -51,8 +58,6 @@ mv codex-project-mover-aarch64-apple-darwin "$HOME/.local/bin/codex-project-move
 ```
 
 Make sure `$HOME/.local/bin` is in your shell `PATH` before running `codex-project-mover`.
-
-Homebrew packaging is planned after v1. A formula can point at the immutable `v1.0.0` tag after the release exists.
 
 ## Commands
 
