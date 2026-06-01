@@ -11,6 +11,9 @@ brew install sunshineo/tap/codex-project-mover
 codex-project-mover --version
 ```
 
+The Homebrew formula currently supports Apple Silicon macOS. The published
+bottle targets Homebrew's current Apple Silicon macOS runner.
+
 ### Build From Source
 
 With Rust 1.85 or newer installed:

@@ -110,6 +110,12 @@ The project is available through the public `sunshineo/homebrew-tap` repository:
 brew install sunshineo/tap/codex-project-mover
 ```
 
+The tap formula currently supports Apple Silicon macOS and publishes a bottle
+for Homebrew's current Apple Silicon macOS runner so matching normal installs
+do not need to build with Homebrew's Rust toolchain. Do not add Intel macOS,
+Linux, or older macOS bottles until those platforms are verified and part of the
+supported CLI contract.
+
 The formula should point at immutable source tag tarballs such as
 `https://github.com/sunshineo/codex-project-mover/archive/refs/tags/v1.0.0.tar.gz`.
 Packaging-only tap updates do not require a new `codex-project-mover` release
