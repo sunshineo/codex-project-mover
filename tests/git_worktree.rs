@@ -91,6 +91,56 @@ fn maps_private_var_worktree_paths_against_var_root_without_rewriting_output_pat
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn maps_worktree_paths_through_symlinked_old_root() {
+    let temp = tempdir().unwrap();
+    let real_root = temp.path().join("real-root");
+    let link_root = temp.path().join("link-root");
+    let real_old = real_root.join("repo");
+    let link_old = link_root.join("repo");
+    let new = temp.path().join("moved/repo");
+    fs::create_dir_all(real_old.join(".worktrees/feature")).unwrap();
+    std::os::unix::fs::symlink(&real_root, &link_root).unwrap();
+
+    let entries = vec![
+        codex_project_mover::git_worktree::WorktreeEntry {
+            path: real_old.clone(),
+            head: Some("a".to_string()),
+            branch: Some("refs/heads/main".to_string()),
+            detached: false,
+            bare: false,
+            locked: None,
+            prunable: None,
+        },
+        codex_project_mover::git_worktree::WorktreeEntry {
+            path: real_old.join(".worktrees/feature"),
+            head: Some("b".to_string()),
+            branch: Some("refs/heads/feature".to_string()),
+            detached: false,
+            bare: false,
+            locked: None,
+            prunable: None,
+        },
+    ];
+
+    let moves = map_worktree_paths(&entries, &link_old, &new);
+
+    assert_eq!(
+        moves,
+        vec![
+            WorktreePathMove {
+                old_path: real_old.clone(),
+                new_path: new.clone(),
+            },
+            WorktreePathMove {
+                old_path: real_old.join(".worktrees/feature"),
+                new_path: new.join(".worktrees/feature"),
+            },
+        ]
+    );
+}
+
 #[test]
 fn repair_paths_excludes_main_project_path_after_cleaning_for_comparison() {
     let plan = GitWorktreePlan {

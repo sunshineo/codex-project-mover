@@ -469,6 +469,11 @@ pub fn map_worktree_paths(
 }
 
 fn normalize_path_for_compare(path: &Path) -> PathBuf {
+    let cleaned = clean_path_for_compare(path);
+    canonicalize_existing_prefix(&cleaned).unwrap_or(cleaned)
+}
+
+fn clean_path_for_compare(path: &Path) -> PathBuf {
     let mut cleaned = PathBuf::new();
     for component in path.components() {
         match component {
@@ -482,9 +487,29 @@ fn normalize_path_for_compare(path: &Path) -> PathBuf {
         }
     }
 
-    match cleaned.strip_prefix("/private/var") {
-        Ok(relative) if relative.as_os_str().is_empty() => PathBuf::from("/var"),
-        Ok(relative) => PathBuf::from("/var").join(relative),
-        Err(_) => cleaned,
+    cleaned
+}
+
+fn canonicalize_existing_prefix(path: &Path) -> Option<PathBuf> {
+    if let Ok(canonical) = fs::canonicalize(path) {
+        return Some(canonical);
     }
+
+    let mut existing_prefix = path;
+    let mut missing_suffix = Vec::new();
+    while !existing_prefix.exists() {
+        let file_name = existing_prefix.file_name()?;
+        missing_suffix.push(file_name.to_os_string());
+        existing_prefix = existing_prefix.parent()?;
+    }
+
+    // Git reports real paths from `worktree list`, while users may pass paths
+    // through macOS firmlinks or their own symlinks. Canonicalize the deepest
+    // existing ancestor and append the missing suffix so comparisons still work
+    // after the old checkout has been moved away.
+    let mut canonical = fs::canonicalize(existing_prefix).ok()?;
+    for component in missing_suffix.iter().rev() {
+        canonical.push(component);
+    }
+    Some(canonical)
 }
