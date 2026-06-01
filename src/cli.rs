@@ -5,6 +5,7 @@ use clap::{Args, Parser, Subcommand};
 #[derive(Debug, Parser)]
 #[command(name = "codex-project-mover")]
 #[command(about = "Move a Codex Desktop project and update local Codex metadata")]
+#[command(version)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,

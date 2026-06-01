@@ -2932,6 +2932,7 @@ codex-project-mover apply --old /old/project --new /new/project
 codex-project-mover apply --old /old/project --new /new/project --relink-only
 codex-project-mover verify --old /old/project --new /new/project
 codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/manifest.json
+codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>
 ```
 
 Close Codex before running commands. The tool exits if it sees the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. Pass `--allow-running-codex` only after deciding the reported process is unrelated to the move.
@@ -3056,3 +3057,4 @@ git commit -m "ci: add macOS Rust checks"
   - `cargo test`: PASS
   - `cargo build --release`: PASS
 - Notable implementation adjustment: CLI integration tests set `CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD=1` so tests can exercise temp Codex homes while the real Codex app is open. The public CLI also has an explicit `--allow-running-codex` user override for cases where the detected process is unrelated to the project being moved.
+- V1 API hardening follow-up: `--version` is supported, and `rollback --backup` accepts either the backup directory printed by `apply` or the `manifest.json` file inside it.

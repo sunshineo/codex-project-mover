@@ -10,6 +10,7 @@ codex-project-mover apply --old /old/project --new /new/project
 codex-project-mover apply --old /old/project --new /new/project --relink-only
 codex-project-mover verify --old /old/project --new /new/project
 codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/manifest.json
+codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>
 ```
 
 Close Codex before running commands. By default, the tool exits if it sees a Codex process that can plausibly read or write the same local `CODEX_HOME` state that this tool edits: the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. It does not stop or kill those processes.
@@ -30,13 +31,14 @@ Relink-only also attempts Git worktree repair from the new path when the project
 
 Verify checks that supported old-path references are gone and supported new-path references are present.
 
-Rollback restores Codex metadata from a backup manifest. If the tool created the new project folder during normal apply, rollback moves that new folder to Trash. It does not restore the old folder from Trash.
+Rollback restores Codex metadata from a backup manifest. `--backup` accepts either the backup directory printed by `apply` or the `manifest.json` file inside it. If the tool created the new project folder during normal apply, rollback moves that new folder to Trash. It does not restore the old folder from Trash.
 
 ## Build
 
 ```bash
 cargo build --release
 ./target/release/codex-project-mover --help
+./target/release/codex-project-mover --version
 ```
 
 The first release target is Apple Silicon macOS. Intel macOS can be added with a second release artifact after the v1 workflow is stable.

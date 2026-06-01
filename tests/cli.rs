@@ -66,6 +66,16 @@ fn help_lists_core_subcommands() {
 }
 
 #[test]
+fn version_prints_package_version() {
+    let mut cmd = mover();
+
+    cmd.arg("--version")
+        .assert()
+        .success()
+        .stdout(contains(env!("CARGO_PKG_VERSION")));
+}
+
+#[test]
 fn apply_help_lists_allow_running_codex_flag() {
     let mut cmd = mover();
 
@@ -296,6 +306,51 @@ fn rollback_restores_metadata_from_manifest() {
             "--backup",
             &format!("{}/manifest.json", backup_dir),
         ])
+        .assert()
+        .success()
+        .stdout(contains("metadata rollback complete"));
+
+    assert_eq!(
+        fs::read_to_string(&jsonl).unwrap(),
+        r#"{"cwd":"/old/project"}"#
+    );
+}
+
+#[test]
+fn rollback_accepts_backup_directory_printed_by_apply() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    let new = temp.path().join("new-project");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    fs::create_dir_all(&new).unwrap();
+    let jsonl = home.join("sessions/thread.jsonl");
+    fs::write(&jsonl, r#"{"cwd":"/old/project"}"#).unwrap();
+
+    let apply_output = mover()
+        .args([
+            "apply",
+            "--old",
+            "/old/project",
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+            "--relink-only",
+        ])
+        .output()
+        .unwrap();
+    assert!(apply_output.status.success());
+
+    let stdout = String::from_utf8(apply_output.stdout).unwrap();
+    let backup_dir = stdout
+        .lines()
+        .find_map(|line| line.strip_prefix("metadata backup: "))
+        .unwrap();
+
+    fs::write(&jsonl, r#"{"cwd":"broken"}"#).unwrap();
+
+    mover()
+        .args(["rollback", "--backup", backup_dir])
         .assert()
         .success()
         .stdout(contains("metadata rollback complete"));

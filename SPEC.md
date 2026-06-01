@@ -117,6 +117,8 @@ Mac-first v1:
 - Support exact absolute paths.
 - Support dry-run/plan, apply, verify, rollback.
 - Support relink-only mode for cases where the user already moved the folder.
+- Support `--version`.
+- Support rollback from either a backup directory or its `manifest.json`.
 
 Out of scope for v1:
 
@@ -125,6 +127,12 @@ Out of scope for v1:
 - An installed Codex skill as the primary interface.
 - Cloud/project sync behavior beyond local Codex Desktop state.
 - Editing arbitrary old-path text inside user messages.
+
+Post-v1 CLI considerations:
+
+- Machine-readable output, such as `--json`, can be added later if scripts need stable structured output. v1 output is human-oriented; scripts should rely on exit status.
+- Global options such as top-level `--codex-home` can be considered later. v1 keeps options on each subcommand.
+- Detailed exit-code taxonomy can be considered later. v1 uses success vs failure.
 
 ## Open Questions
 
@@ -146,7 +154,7 @@ Out of scope for v1:
 - `codex exec` is treated as relevant even without a separate OS-level `codex app-server` process because it can load `CODEX_HOME`, initialize state DBs, and persist rollout files in-process.
 - The old folder is moved to macOS Trash after copy and metadata verification.
 - Backups are metadata backups under `~/.codex/codex-project-mover-backups/<id>` and include movement metadata for rollback cleanup.
-- Rollback restores metadata from backup and moves the tool-created new folder to Trash when applicable.
+- Rollback restores metadata from backup and moves the tool-created new folder to Trash when applicable. `rollback --backup` accepts either the backup directory printed by `apply` or the manifest file inside it.
 - `.codex-global-state.json` updates JSON string values and JSON object keys exactly equal to the old path.
 - `config.toml` updates exact string values, exact `[projects."/path"]` table keys, and exact per-path open-target preference keys.
 - `verify` requires supported old-path references to be gone and supported new-path references to be present.

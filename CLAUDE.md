@@ -13,6 +13,7 @@ If the user has reviewed the reported process list and knows the process is unre
 ```bash
 cargo build --release
 ./target/release/codex-project-mover --help
+./target/release/codex-project-mover --version
 ```
 
 ## Recommended workflow
@@ -64,9 +65,10 @@ Requires: old path does not exist, new path exists as a directory. Does not move
 
 ```bash
 codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/manifest.json
+codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>
 ```
 
-Restores all backed-up metadata files from the manifest. If the tool created the new project folder during a normal apply, it moves that folder to Trash.
+`--backup` accepts either the backup directory printed by `apply` or the `manifest.json` file inside it. Rollback restores all backed-up metadata files from the manifest. If the tool created the new project folder during a normal apply, it moves that folder to Trash.
 
 Rollback does not restore the old project folder from Trash — that must be done manually if needed.
 
