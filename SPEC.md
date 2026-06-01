@@ -134,6 +134,12 @@ Post-v1 CLI considerations:
 - Global options such as top-level `--codex-home` can be considered later. v1 keeps options on each subcommand.
 - Detailed exit-code taxonomy can be considered later. v1 uses success vs failure.
 
+V1 freeze notes:
+
+- Subcommand descriptions in top-level `--help` are cosmetic and do not block v1. The stable contract is the command names, flags, required arguments, and behavior.
+- `rollback` intentionally does not accept `--codex-home`. It restores the absolute metadata paths recorded in the backup manifest, so an independent Codex home argument would be ignored or dangerous.
+- Release mechanics are tracked separately from the CLI contract. See `RELEASING.md` for the v1 tag and artifact checklist.
+
 ## Open Questions
 
 - Should the default `apply` move the folder, or should moving require an explicit `--move-folder` flag?
