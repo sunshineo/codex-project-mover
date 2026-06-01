@@ -16,7 +16,7 @@
 - Normal apply requires `old` to exist and `new` to not exist.
 - Relink-only mode requires `old` to not exist and `new` to exist.
 - New parent directories are created automatically.
-- Codex process detection is aggressive: any process name, executable path, or command line containing `codex` case-insensitively blocks commands that scan or mutate Codex state, except the mover process itself. There is no force override.
+- Codex process detection is focused on local Codex state writers: the main Codex Desktop process, `codex app-server`, and standalone `codex` CLI/`codex exec` processes. The guard reports and exits by default, never stops processes, and can be bypassed only with the explicit `--allow-running-codex` user override.
 - Project movement uses metadata scan, metadata backup, copy, copy verification, metadata update, metadata verification, then moves the old folder to macOS Trash.
 - Backups are metadata backups under `~/.codex/codex-project-mover-backups/<id>` and include movement metadata for rollback cleanup.
 - Rollback restores metadata files from a backup manifest and moves the created new project folder to Trash when the manifest records one. It does not restore the old folder from Trash.
@@ -2934,7 +2934,7 @@ codex-project-mover verify --old /old/project --new /new/project
 codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/manifest.json
 ```
 
-Close Codex before running commands. The tool exits if it sees Codex-related processes, and there is no force override.
+Close Codex before running commands. The tool exits if it sees the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. Pass `--allow-running-codex` only after deciding the reported process is unrelated to the move.
 
 Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash.
 
@@ -2956,7 +2956,7 @@ Add a short `## Resolved Decisions` section after `Open Questions` with these bu
 - Normal `apply` requires the old folder to exist and the new path to not exist.
 - Relink-only mode requires the old folder to not exist and the new folder to exist.
 - New parent directories are created automatically.
-- Commands exit when Codex-related processes are running, excluding the mover process itself, and there is no force override.
+- Commands exit when relevant Codex local-state processes are running, excluding the mover process itself. Users can pass `--allow-running-codex` to proceed after reviewing the reported process list.
 - The old folder is moved to macOS Trash after copy and metadata verification.
 - Backups are metadata backups under `~/.codex/codex-project-mover-backups/<id>` and include movement metadata for rollback cleanup.
 - Rollback restores metadata from backup and moves the tool-created new folder to Trash when applicable.
@@ -3039,7 +3039,7 @@ git commit -m "ci: add macOS Rust checks"
 
 ## Self-Review
 
-- Spec coverage: The plan covers Rust CLI scaffolding, `plan`, `apply`, `verify`, `rollback`, path normalization, aggressive Codex process detection without force override, metadata backups with movement metadata, copy-before-metadata-update movement, Trash cleanup, JSONL `cwd`, SQLite `threads.cwd`, global state exact JSON strings and exact path keys, `config.toml` exact values and exact path keys, automation `cwds`, relink-only mode, and tests.
+- Spec coverage: The plan covers Rust CLI scaffolding, `plan`, `apply`, `verify`, `rollback`, path normalization, focused Codex process detection with an explicit user override, metadata backups with movement metadata, copy-before-metadata-update movement, Trash cleanup, JSONL `cwd`, SQLite `threads.cwd`, global state exact JSON strings and exact path keys, `config.toml` exact values and exact path keys, automation `cwds`, relink-only mode, and tests.
 - Clarified decisions: The plan reflects the follow-up decisions that normal apply moves by default, relink-only requires the old folder to be absent, parent directories are created automatically, old folders go to macOS Trash, rollback restores metadata and removes the created new folder when applicable, `.codex-global-state.json` requires whole-string/key exact matches, and `verify` checks expected new references.
 - Safety coverage: The plan never uses broad substring replacement in session history or global state, updates known SQLite columns only, backs up every changed metadata file before copying or editing metadata, verifies copied code before metadata changes, verifies no supported old-path references remain, verifies new-path references are present, and moves project folders to Trash instead of deleting them directly.
 - Placeholder scan: No task relies on unspecified future behavior. Each task names files, tests, commands, expected results, and concrete implementation interfaces.
@@ -3055,4 +3055,4 @@ git commit -m "ci: add macOS Rust checks"
   - `cargo clippy --all-targets -- -D warnings`: PASS
   - `cargo test`: PASS
   - `cargo build --release`: PASS
-- Notable implementation adjustment: CLI integration tests set `CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD=1` so tests can exercise temp Codex homes while the real Codex app is open. The public CLI still has no `--force` flag.
+- Notable implementation adjustment: CLI integration tests set `CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD=1` so tests can exercise temp Codex homes while the real Codex app is open. The public CLI also has an explicit `--allow-running-codex` user override for cases where the detected process is unrelated to the project being moved.

@@ -18,7 +18,7 @@ use crate::trash::move_to_trash;
 use crate::updater::update_codex_home;
 
 pub fn run(args: ApplyArgs) -> Result<()> {
-    assert_no_codex_processes()?;
+    assert_no_codex_processes(args.allow_running_codex)?;
 
     let old = normalize_project_path(args.old)?;
     let new = normalize_project_path(args.new)?;

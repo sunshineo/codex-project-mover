@@ -7,7 +7,7 @@ use crate::process_guard::assert_no_codex_processes;
 use crate::scanner::scan_codex_home;
 
 pub fn run(args: MoveArgs) -> Result<()> {
-    assert_no_codex_processes()?;
+    assert_no_codex_processes(args.allow_running_codex)?;
     let old = normalize_project_path(args.old)?;
     let new = normalize_project_path(args.new)?;
     let codex_home = codex_home_from_arg(args.codex_home)?;

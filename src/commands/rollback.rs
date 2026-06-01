@@ -6,7 +6,7 @@ use crate::process_guard::assert_no_codex_processes;
 use crate::trash::move_to_trash;
 
 pub fn run(args: RollbackArgs) -> Result<()> {
-    assert_no_codex_processes()?;
+    assert_no_codex_processes(args.allow_running_codex)?;
     let manifest = restore_metadata_backup(&args.backup)?;
     if let Some(created_new_project_path) = manifest.created_new_project_path {
         if created_new_project_path.exists() {

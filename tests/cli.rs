@@ -66,6 +66,16 @@ fn help_lists_core_subcommands() {
 }
 
 #[test]
+fn apply_help_lists_allow_running_codex_flag() {
+    let mut cmd = mover();
+
+    cmd.args(["apply", "--help"])
+        .assert()
+        .success()
+        .stdout(contains("--allow-running-codex"));
+}
+
+#[test]
 fn plan_reports_supported_references() {
     let temp = tempdir().unwrap();
     let home = temp.path().join(".codex");

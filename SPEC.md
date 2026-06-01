@@ -37,7 +37,7 @@ codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>
 
 The tool should:
 
-- Refuse to run `apply` while Codex is open, unless an explicit force flag is supplied.
+- Refuse to run `apply` while relevant Codex local-state processes are open, unless an explicit user override flag is supplied.
 - Create a complete timestamped backup before modifying anything.
 - Move the project folder itself when requested.
 - Update Codex metadata for the old path to the new path.
@@ -130,7 +130,7 @@ Out of scope for v1:
 
 - Should the default `apply` move the folder, or should moving require an explicit `--move-folder` flag?
 - Should the tool require the new path parent to exist, or create it automatically?
-- How strict should Codex process detection be? `Codex.app`, `codex app-server`, and related helper processes may all matter.
+- How strict should Codex process detection be? `Codex.app`, `codex app-server`, standalone `codex` CLI processes, and related helper processes may all matter.
 - Should rollback move the project folder back, or only restore Codex metadata by default?
 - Should the tool use a single backup directory under `~/.codex/codex-project-mover-backups` or a backup directory adjacent to the repo?
 
@@ -140,7 +140,10 @@ Out of scope for v1:
 - Normal `apply` requires the old folder to exist and the new path to not exist.
 - Relink-only mode requires the old folder to not exist and the new folder to exist.
 - New parent directories are created automatically.
-- Commands exit when Codex-related processes are running, excluding the mover process itself, and there is no force override.
+- Commands exit when Codex-related processes that can plausibly touch `CODEX_HOME` state are running: the main Codex Desktop process, `codex app-server`, and standalone `codex` CLI/`codex exec` processes. The guard does not stop or kill processes.
+- Users can pass `--allow-running-codex` to bypass the process guard after they decide the detected process is unrelated to the move. This flag is deliberately explicit because concurrent Codex writes can race with metadata updates.
+- Process detection ignores known non-writing false positives such as Electron helper processes, crashpad handlers, extension hosts, `node_modules` dependency paths, and the mover process itself. The reason is that many local tools include `codex` in paths or command lines without sharing the `~/.codex` state being rewritten.
+- `codex exec` is treated as relevant even without a separate OS-level `codex app-server` process because it can load `CODEX_HOME`, initialize state DBs, and persist rollout files in-process.
 - The old folder is moved to macOS Trash after copy and metadata verification.
 - Backups are metadata backups under `~/.codex/codex-project-mover-backups/<id>` and include movement metadata for rollback cleanup.
 - Rollback restores metadata from backup and moves the tool-created new folder to Trash when applicable.

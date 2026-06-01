@@ -1,6 +1,3 @@
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
-
 use anyhow::{bail, Result};
 use sysinfo::System;
 
@@ -21,8 +18,11 @@ impl ProcessInfo {
     }
 }
 
-pub fn assert_no_codex_processes() -> Result<()> {
+pub fn assert_no_codex_processes(allow_running_codex: bool) -> Result<()> {
     if std::env::var("CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD").as_deref() == Ok("1") {
+        return Ok(());
+    }
+    if allow_running_codex {
         return Ok(());
     }
 
@@ -30,103 +30,12 @@ pub fn assert_no_codex_processes() -> Result<()> {
     let mut system = System::new_all();
     system.refresh_all();
 
-    let (processes, app_server_bin) = collect_processes(&system);
-    let matches = find_codex_processes(&processes, current_pid);
-    if matches.is_empty() {
-        return Ok(());
-    }
-
-    // Phase 1: try graceful quit of the Codex Desktop app via AppleScript,
-    // and stop the managed daemon if one is found.
-    println!("Codex-related processes detected. Attempting to stop Codex...");
-
-    let _ = std::process::Command::new("osascript")
-        .args(["-e", "tell application \"Codex\" to quit"])
-        .status();
-
-    if let Some(ref bin) = app_server_bin {
-        let _ = std::process::Command::new(bin)
-            .args(["app-server", "daemon", "stop"])
-            .output();
-    }
-
-    // Poll up to 8 seconds for graceful exit.
-    if wait_for_clear(&mut system, current_pid, Duration::from_secs(8)) {
-        println!("Codex stopped.");
-        return Ok(());
-    }
-
-    // Phase 2: SIGTERM any remaining blocked processes.
-    system.refresh_all();
-    let (refreshed, _) = collect_processes(&system);
-    let remaining = find_codex_processes(&refreshed, current_pid);
-    if !remaining.is_empty() {
-        println!("Sending SIGTERM to remaining Codex processes...");
-        signal_processes(&remaining, "-15");
-        if wait_for_clear(&mut system, current_pid, Duration::from_secs(5)) {
-            println!("Codex stopped.");
-            return Ok(());
-        }
-    }
-
-    // Phase 3: SIGKILL anything still alive.
-    system.refresh_all();
-    let (refreshed, _) = collect_processes(&system);
-    let remaining = find_codex_processes(&refreshed, current_pid);
-    if !remaining.is_empty() {
-        println!("Sending SIGKILL to remaining Codex processes...");
-        signal_processes(&remaining, "-9");
-        if wait_for_clear(&mut system, current_pid, Duration::from_secs(5)) {
-            println!("Codex stopped.");
-            return Ok(());
-        }
-    }
-
-    // Still blocked — report what's left.
-    system.refresh_all();
-    let (refreshed, _) = collect_processes(&system);
-    let remaining = find_codex_processes(&refreshed, current_pid);
-    let rendered = remaining
-        .iter()
-        .map(|p| format!("pid {}: {} {}", p.pid, p.name, p.command))
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    bail!(
-        "Codex-related processes are still running. Please stop them manually and retry.\n{}",
-        rendered
-    );
+    let processes = collect_processes(&system);
+    assert_no_blocking_codex_processes(&processes, current_pid, false)
 }
 
-fn signal_processes(processes: &[ProcessInfo], signal: &str) {
-    for p in processes {
-        let _ = std::process::Command::new("kill")
-            .args([signal, &p.pid.to_string()])
-            .status();
-    }
-}
-
-fn wait_for_clear(system: &mut System, current_pid: u32, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    loop {
-        std::thread::sleep(Duration::from_millis(500));
-        system.refresh_all();
-        let (processes, _) = collect_processes(system);
-        if find_codex_processes(&processes, current_pid).is_empty() {
-            return true;
-        }
-        if Instant::now() >= deadline {
-            return false;
-        }
-    }
-}
-
-/// Collects process info from `system`. Also returns the executable path of the
-/// first detected codex app-server process, for use with `app-server daemon stop`.
-fn collect_processes(system: &System) -> (Vec<ProcessInfo>, Option<PathBuf>) {
-    let mut app_server_bin: Option<PathBuf> = None;
-
-    let processes = system
+fn collect_processes(system: &System) -> Vec<ProcessInfo> {
+    system
         .processes()
         .iter()
         .map(|(pid, process)| {
@@ -138,22 +47,9 @@ fn collect_processes(system: &System) -> (Vec<ProcessInfo>, Option<PathBuf>) {
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            let lower = command.to_ascii_lowercase();
-            if app_server_bin.is_none()
-                && lower.contains("codex")
-                && lower.contains("app-server")
-                && !lower.contains("node_modules")
-            {
-                if let Some(exe) = process.exe() {
-                    app_server_bin = Some(exe.to_path_buf());
-                }
-            }
-
             ProcessInfo::new(pid.as_u32(), process.name().to_string_lossy(), command)
         })
-        .collect();
-
-    (processes, app_server_bin)
+        .collect()
 }
 
 fn looks_like_env_var(token: &str) -> bool {
@@ -166,13 +62,84 @@ pub fn find_codex_processes(processes: &[ProcessInfo], current_pid: u32) -> Vec<
     processes
         .iter()
         .filter(|process| process.pid != current_pid)
-        .filter(|process| {
-            let haystack = format!("{} {}", process.name, process.command).to_ascii_lowercase();
-            haystack.contains("codex")
-                && !haystack.contains("codex-project-mover")
-                && !haystack.contains("node_modules")
-                && process.name.to_ascii_lowercase() != "extension-host"
-        })
+        .filter(|process| is_blocking_codex_process(process))
         .cloned()
         .collect()
+}
+
+pub fn assert_no_blocking_codex_processes(
+    processes: &[ProcessInfo],
+    current_pid: u32,
+    allow_running_codex: bool,
+) -> Result<()> {
+    if allow_running_codex {
+        return Ok(());
+    }
+
+    let matches = find_codex_processes(processes, current_pid);
+    if matches.is_empty() {
+        return Ok(());
+    }
+
+    let rendered = matches
+        .iter()
+        .map(|process| format!("pid {}: {} {}", process.pid, process.name, process.command))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    bail!(
+        "Codex-related processes are running. This tool edits local Codex state under CODEX_HOME, so concurrent Codex app-server, CLI, or desktop processes may overwrite or race with the move.\nClose those processes and retry, or rerun with --allow-running-codex if you know they are unrelated to this project.\n{}",
+        rendered
+    );
+}
+
+fn is_blocking_codex_process(process: &ProcessInfo) -> bool {
+    let command = process.command.to_ascii_lowercase();
+    if command.contains("codex-project-mover") || command.contains("node_modules") {
+        return false;
+    }
+
+    // Block only the Codex surfaces that can plausibly read or write the same
+    // CODEX_HOME state this tool mutates. `codex exec` can persist rollout files
+    // and initialize state DBs in-process, so a separate `codex app-server`
+    // process is not the only risky shape. The Electron helpers, crashpad
+    // handlers, browser extension host, and dependency paths are intentionally
+    // ignored to avoid false positives from tools such as OpenClaw.
+    is_main_desktop_process(process)
+        || is_app_server_process(process)
+        || is_standalone_codex_cli_process(process)
+}
+
+fn is_main_desktop_process(process: &ProcessInfo) -> bool {
+    process.name.eq_ignore_ascii_case("Codex")
+        && process.command.contains("/Codex.app/Contents/MacOS/Codex")
+}
+
+fn is_app_server_process(process: &ProcessInfo) -> bool {
+    command_executable_basename(&process.command)
+        .is_some_and(|name| name.eq_ignore_ascii_case("codex"))
+        && command_words(&process.command)
+            .iter()
+            .any(|word| word.eq_ignore_ascii_case("app-server"))
+}
+
+fn is_standalone_codex_cli_process(process: &ProcessInfo) -> bool {
+    let command = process.command.to_ascii_lowercase();
+    if command.contains("/codex.app/contents/frameworks/") {
+        return false;
+    }
+
+    process.name.eq_ignore_ascii_case("codex")
+        || command_executable_basename(&process.command)
+            .is_some_and(|name| name.eq_ignore_ascii_case("codex"))
+}
+
+fn command_executable_basename(command: &str) -> Option<&str> {
+    command_words(command)
+        .first()
+        .and_then(|executable| executable.rsplit(['/', '\\']).next())
+}
+
+fn command_words(command: &str) -> Vec<&str> {
+    command.split_whitespace().collect()
 }

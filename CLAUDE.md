@@ -4,7 +4,9 @@ This tool moves a Codex Desktop project folder and updates local Codex metadata 
 
 ## Prerequisites
 
-Codex Desktop must be fully closed before running any command. The tool checks for Codex-related processes and exits if any are found. There is no force override.
+Codex should normally be fully closed before running any command. The tool checks for processes that can plausibly read or write the same local `CODEX_HOME` state being edited: the main Codex Desktop process, `codex app-server`, and standalone `codex` CLI/`codex exec` processes. It reports those processes and exits without trying to stop them.
+
+If the user has reviewed the reported process list and knows the process is unrelated to the project being moved, they can pass `--allow-running-codex` to proceed. Do not add this flag automatically; it is a user risk decision because concurrent Codex writes can race with the metadata update.
 
 ## Build
 

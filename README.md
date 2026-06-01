@@ -12,9 +12,13 @@ codex-project-mover verify --old /old/project --new /new/project
 codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/manifest.json
 ```
 
-Close Codex before running commands. The tool exits if it sees Codex-related processes, and there is no force override.
+Close Codex before running commands. By default, the tool exits if it sees a Codex process that can plausibly read or write the same local `CODEX_HOME` state that this tool edits: the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. It does not stop or kill those processes.
 
-Because Codex must be fully closed during the move, you can't drive this tool from inside Codex itself. Run it from a plain terminal, or have a different AI coding assistant (such as Claude Code) run it for you.
+The guard is intentionally focused. `codex exec` can persist rollout files and initialize state databases in-process, so a separate `codex app-server` process is not the only risky shape. Electron helpers, crashpad handlers, extension hosts, and `node_modules` dependency paths are ignored to avoid false positives from tools that merely contain `codex` in a path or command line.
+
+If you know the detected process is unrelated to the project being moved, pass `--allow-running-codex` to proceed. This is an explicit user override; the tool still backs up metadata and verifies the move, but concurrent Codex writes can race with it.
+
+Because Codex should normally be fully closed during the move, you usually can't drive this tool from inside Codex itself. Run it from a plain terminal, or have a different AI coding assistant (such as Claude Code) run it for you. Use `--allow-running-codex` only when you have checked the reported processes and accept the risk.
 
 Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash.
 
