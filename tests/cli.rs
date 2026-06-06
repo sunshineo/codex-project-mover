@@ -435,7 +435,8 @@ fn plan_reports_no_git_worktree_repair_for_plain_folder() {
         ])
         .assert()
         .success()
-        .stdout(contains("Git worktree: none detected"));
+        .stdout(contains("Git worktree: none detected"))
+        .stdout(contains("Codex processes: none detected"));
 }
 
 #[test]

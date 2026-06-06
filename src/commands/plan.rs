@@ -5,11 +5,10 @@ use crate::git_worktree::{
     build_plan_for_existing_project, linked_worktree_move_cwd, GitWorktreeKind,
 };
 use crate::pathing::{codex_home_from_arg, normalize_project_path};
-use crate::process_guard::assert_no_codex_processes;
+use crate::process_guard::{detect_codex_processes, render_process_report};
 use crate::scanner::scan_codex_home;
 
 pub fn run(args: MoveArgs) -> Result<()> {
-    assert_no_codex_processes(args.allow_running_codex)?;
     let old = normalize_project_path(args.old)?;
     let new = normalize_project_path(args.new)?;
     let codex_home = codex_home_from_arg(args.codex_home)?;
@@ -65,6 +64,10 @@ pub fn run(args: MoveArgs) -> Result<()> {
                 git_plan.new_project_path.display()
             );
         }
+    }
+
+    for line in render_process_report(&detect_codex_processes(), args.allow_running_codex) {
+        println!("{line}");
     }
     Ok(())
 }

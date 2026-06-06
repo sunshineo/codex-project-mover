@@ -1,5 +1,5 @@
 use codex_project_mover::process_guard::{
-    assert_no_blocking_codex_processes, find_codex_processes, ProcessInfo,
+    assert_no_blocking_codex_processes, find_codex_processes, render_process_report, ProcessInfo,
 };
 
 #[test]
@@ -100,4 +100,52 @@ fn process_guard_allows_user_bypass() {
     )];
 
     assert!(assert_no_blocking_codex_processes(&processes, 99, true).is_ok());
+}
+
+#[test]
+fn process_report_states_none_detected_when_empty() {
+    assert_eq!(
+        render_process_report(&[], false),
+        vec!["Codex processes: none detected".to_string()]
+    );
+}
+
+#[test]
+fn process_report_warns_apply_would_refuse_by_default() {
+    let matches = vec![ProcessInfo::new(
+        31,
+        "codex",
+        "/opt/homebrew/bin/codex exec summarize this repo",
+    )];
+
+    let lines = render_process_report(&matches, false);
+
+    assert_eq!(
+        lines[0],
+        "Codex processes: 1 running — apply would refuse without --allow-running-codex"
+    );
+    assert_eq!(
+        lines[1],
+        "- pid 31: codex /opt/homebrew/bin/codex exec summarize this repo"
+    );
+}
+
+#[test]
+fn process_report_notes_apply_would_proceed_when_bypassed() {
+    let matches = vec![ProcessInfo::new(
+        11,
+        "Codex",
+        "/Applications/Codex.app/Contents/MacOS/Codex",
+    )];
+
+    let lines = render_process_report(&matches, true);
+
+    assert_eq!(
+        lines[0],
+        "Codex processes: 1 running — --allow-running-codex is set, so apply would proceed"
+    );
+    assert_eq!(
+        lines[1],
+        "- pid 11: Codex /Applications/Codex.app/Contents/MacOS/Codex"
+    );
 }

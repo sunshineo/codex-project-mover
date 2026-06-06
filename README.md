@@ -74,7 +74,7 @@ codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/
 codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>
 ```
 
-Close Codex before running commands. By default, the tool exits if it sees a Codex process that can plausibly read or write the same local `CODEX_HOME` state that this tool edits: the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. It does not stop or kill those processes.
+Close Codex before running commands. By default, `apply`, `verify`, and `rollback` exit if they see a Codex process that can plausibly read or write the same local `CODEX_HOME` state that this tool edits: the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. They do not stop or kill those processes. `plan` is a read-only dry run, so it never exits on this check — it reports any detected processes at the end of its output (noting whether `apply` would refuse) and continues, so the dry run previews every issue a real run would hit.
 
 The guard is intentionally focused. `codex exec` can persist rollout files and initialize state databases in-process, so a separate `codex app-server` process is not the only risky shape. Electron helpers, crashpad handlers, extension hosts, and `node_modules` dependency paths are ignored to avoid false positives from tools that merely contain `codex` in a path or command line.
 

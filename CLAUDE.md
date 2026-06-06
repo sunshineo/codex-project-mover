@@ -4,7 +4,7 @@ This tool moves a Codex Desktop project folder and updates local Codex metadata 
 
 ## Prerequisites
 
-Codex should normally be fully closed before running any command. The tool checks for processes that can plausibly read or write the same local `CODEX_HOME` state being edited: the main Codex Desktop process, `codex app-server`, and standalone `codex` CLI/`codex exec` processes. It reports those processes and exits without trying to stop them.
+Codex should normally be fully closed before running any command. The tool checks for processes that can plausibly read or write the same local `CODEX_HOME` state being edited: the main Codex Desktop process, `codex app-server`, and standalone `codex` CLI/`codex exec` processes. `apply`, `verify`, and `rollback` report those processes and exit without trying to stop them. `plan` (dry run) does not exit on this check: it reports any detected processes at the end of its output (noting whether `apply` would refuse) and continues, so a dry run surfaces every issue a real run would hit.
 
 If the user has reviewed the reported process list and knows the process is unrelated to the project being moved, they can pass `--allow-running-codex` to proceed. Do not add this flag automatically; it is a user risk decision because concurrent Codex writes can race with the metadata update.
 
@@ -26,7 +26,7 @@ Run these steps in order:
 codex-project-mover plan --old /old/project --new /new/project
 ```
 
-Scans all supported Codex metadata surfaces and prints every reference that would be updated. Makes no changes. Review the output to confirm the right files are affected before proceeding.
+Scans all supported Codex metadata surfaces and prints every reference that would be updated. Makes no changes. Also reports whether any Codex processes are running — without blocking — so the dry run previews the process-guard check that `apply` enforces. Review the output to confirm the right files are affected before proceeding.
 
 ### 2. Apply
 
