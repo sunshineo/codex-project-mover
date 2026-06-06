@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     ffi::OsString,
     fs,
     path::{Component, Path, PathBuf},
@@ -38,6 +39,13 @@ pub struct GitWorktreePlan {
     pub new_project_path: PathBuf,
     pub entries: Vec<WorktreeEntry>,
     pub path_moves: Vec<WorktreePathMove>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitFsmonitorReport {
+    pub checked_paths: Vec<PathBuf>,
+    pub running_paths: Vec<PathBuf>,
+    pub unsupported_paths: Vec<PathBuf>,
 }
 
 impl GitWorktreePlan {
@@ -237,13 +245,7 @@ fn run_git(cwd: &Path, args: &[&str]) -> Result<Output> {
 
 fn run_git_os(cwd: &Path, args: &[OsString]) -> Result<Output> {
     let command_label = git_command_label(args);
-    let output = Command::new("git")
-        .current_dir(cwd)
-        .env_remove("GIT_DIR")
-        .env_remove("GIT_WORK_TREE")
-        .args(args)
-        .output()
-        .with_context(|| format!("failed to spawn `{command_label}` in {}", cwd.display()))?;
+    let output = run_git_os_raw(cwd, args)?;
 
     if !output.status.success() {
         bail!(
@@ -259,11 +261,164 @@ fn run_git_os(cwd: &Path, args: &[OsString]) -> Result<Output> {
     Ok(output)
 }
 
+fn run_git_os_raw(cwd: &Path, args: &[OsString]) -> Result<Output> {
+    let command_label = git_command_label(args);
+    Command::new("git")
+        .current_dir(cwd)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .args(args)
+        .output()
+        .with_context(|| format!("failed to spawn `{command_label}` in {}", cwd.display()))
+}
+
 fn git_command_label(args: &[OsString]) -> String {
     std::iter::once("git".to_string())
         .chain(args.iter().map(|arg| arg.to_string_lossy().into_owned()))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+trait GitCommandRunner {
+    fn run_git(&self, cwd: &Path, args: &[OsString]) -> Result<Output>;
+}
+
+struct SystemGitRunner;
+
+impl GitCommandRunner for SystemGitRunner {
+    fn run_git(&self, cwd: &Path, args: &[OsString]) -> Result<Output> {
+        run_git_os_raw(cwd, args)
+    }
+}
+
+pub fn inspect_fsmonitor_daemons_for_move(plan: &GitWorktreePlan) -> Result<GitFsmonitorReport> {
+    inspect_fsmonitor_daemons_for_move_with_runner(plan, &SystemGitRunner)
+}
+
+fn inspect_fsmonitor_daemons_for_move_with_runner(
+    plan: &GitWorktreePlan,
+    runner: &impl GitCommandRunner,
+) -> Result<GitFsmonitorReport> {
+    let checked_paths = fsmonitor_paths_for_move(plan);
+    let mut running_paths = Vec::new();
+    let mut unsupported_paths = Vec::new();
+    let args = vec![
+        OsString::from("fsmonitor--daemon"),
+        OsString::from("status"),
+    ];
+
+    for path in &checked_paths {
+        let output = runner.run_git(path, &args).with_context(|| {
+            format!(
+                "failed to check Git fsmonitor daemon for {}",
+                path.display()
+            )
+        })?;
+        if output.status.success() {
+            running_paths.push(path.clone());
+        } else if fsmonitor_command_unsupported(&output) {
+            unsupported_paths.push(path.clone());
+        }
+    }
+
+    Ok(GitFsmonitorReport {
+        checked_paths,
+        running_paths,
+        unsupported_paths,
+    })
+}
+
+pub fn stop_fsmonitor_daemons_for_move(plan: &GitWorktreePlan) -> Result<Vec<PathBuf>> {
+    stop_fsmonitor_daemons_for_move_with_runner(plan, &SystemGitRunner)
+}
+
+fn stop_fsmonitor_daemons_for_move_with_runner(
+    plan: &GitWorktreePlan,
+    runner: &impl GitCommandRunner,
+) -> Result<Vec<PathBuf>> {
+    let status_args = vec![
+        OsString::from("fsmonitor--daemon"),
+        OsString::from("status"),
+    ];
+    let stop_args = vec![OsString::from("fsmonitor--daemon"), OsString::from("stop")];
+    let mut stopped = Vec::new();
+
+    for path in fsmonitor_paths_for_move(plan) {
+        let status = runner.run_git(&path, &status_args).with_context(|| {
+            format!(
+                "failed to check Git fsmonitor daemon for {}",
+                path.display()
+            )
+        })?;
+        if !status.status.success() {
+            continue;
+        }
+
+        let stop = runner.run_git(&path, &stop_args).with_context(|| {
+            format!("failed to stop Git fsmonitor daemon for {}", path.display())
+        })?;
+        if !stop.status.success() {
+            bail!(
+                "failed to stop Git fsmonitor daemon for {}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+                path.display(),
+                stop.status,
+                String::from_utf8_lossy(&stop.stdout),
+                String::from_utf8_lossy(&stop.stderr)
+            );
+        }
+        stopped.push(path);
+    }
+
+    Ok(stopped)
+}
+
+pub fn fsmonitor_report_lines(report: &GitFsmonitorReport) -> Vec<String> {
+    if report.checked_paths.is_empty() {
+        return vec!["Git fsmonitor: not applicable".to_string()];
+    }
+    if report.running_paths.is_empty() {
+        return vec!["Git fsmonitor: none running".to_string()];
+    }
+
+    let mut lines = vec![format!(
+        "Git fsmonitor: {} running daemon(s); apply will stop them before moving",
+        report.running_paths.len()
+    )];
+    lines.extend(
+        report
+            .running_paths
+            .iter()
+            .map(|path| format!("- Git fsmonitor daemon: {}", path.display())),
+    );
+    lines
+}
+
+fn fsmonitor_paths_for_move(plan: &GitWorktreePlan) -> Vec<PathBuf> {
+    if plan.kind == GitWorktreeKind::NotGit {
+        return Vec::new();
+    }
+
+    let mut paths = BTreeSet::new();
+    for path_move in &plan.path_moves {
+        paths.insert(path_move.old_path.clone());
+    }
+    if paths.is_empty() {
+        paths.insert(plan.project_path.clone());
+    }
+    paths.into_iter().collect()
+}
+
+fn fsmonitor_command_unsupported(output: &Output) -> bool {
+    let text = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )
+    .to_ascii_lowercase();
+    text.contains("fsmonitor--daemon")
+        && (text.contains("not a git command")
+            || text.contains("unknown")
+            || text.contains("unsupported"))
 }
 
 pub fn repair_main_worktree_after_copy(plan: &GitWorktreePlan) -> Result<()> {
@@ -512,4 +667,163 @@ fn canonicalize_existing_prefix(path: &Path) -> Option<PathBuf> {
         canonical.push(component);
     }
     Some(canonical)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::{fsmonitor_report_lines, GitFsmonitorReport};
+
+    #[cfg(unix)]
+    use super::{
+        stop_fsmonitor_daemons_for_move_with_runner, GitCommandRunner, GitWorktreeKind,
+        GitWorktreePlan, WorktreeEntry, WorktreePathMove,
+    };
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(unix)]
+    use std::{
+        cell::RefCell,
+        ffi::OsString,
+        path::Path,
+        process::{ExitStatus, Output},
+    };
+
+    #[cfg(unix)]
+    fn output(status: i32, stdout: &str, stderr: &str) -> Output {
+        Output {
+            status: ExitStatus::from_raw(status << 8),
+            stdout: stdout.as_bytes().to_vec(),
+            stderr: stderr.as_bytes().to_vec(),
+        }
+    }
+
+    #[cfg(unix)]
+    struct FakeGitRunner {
+        status_outputs: Vec<Output>,
+        calls: RefCell<Vec<(PathBuf, Vec<String>)>>,
+    }
+
+    #[cfg(unix)]
+    impl FakeGitRunner {
+        fn new(status_outputs: Vec<Output>) -> Self {
+            Self {
+                status_outputs,
+                calls: RefCell::new(Vec::new()),
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    impl GitCommandRunner for FakeGitRunner {
+        fn run_git(&self, cwd: &Path, args: &[OsString]) -> anyhow::Result<Output> {
+            let args = args
+                .iter()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>();
+            self.calls
+                .borrow_mut()
+                .push((cwd.to_path_buf(), args.clone()));
+            if args == ["fsmonitor--daemon", "status"] {
+                let index = self
+                    .calls
+                    .borrow()
+                    .iter()
+                    .filter(|(_, args)| args == &["fsmonitor--daemon", "status"])
+                    .count()
+                    - 1;
+                return Ok(self.status_outputs[index].clone());
+            }
+            Ok(output(0, "", ""))
+        }
+    }
+
+    #[cfg(unix)]
+    fn worktree_entry(path: &str) -> WorktreeEntry {
+        WorktreeEntry {
+            path: PathBuf::from(path),
+            head: Some("a".to_string()),
+            branch: Some("refs/heads/main".to_string()),
+            detached: false,
+            bare: false,
+            locked: None,
+            prunable: None,
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stops_only_running_fsmonitor_daemons_for_moved_worktrees() {
+        let plan = GitWorktreePlan {
+            kind: GitWorktreeKind::MainWorktree,
+            project_path: PathBuf::from("/old/project"),
+            new_project_path: PathBuf::from("/new/project"),
+            entries: vec![
+                worktree_entry("/old/project"),
+                worktree_entry("/old/project/.worktrees/feature"),
+                worktree_entry("/outside/worktree"),
+            ],
+            path_moves: vec![
+                WorktreePathMove {
+                    old_path: PathBuf::from("/old/project"),
+                    new_path: PathBuf::from("/new/project"),
+                },
+                WorktreePathMove {
+                    old_path: PathBuf::from("/old/project/.worktrees/feature"),
+                    new_path: PathBuf::from("/new/project/.worktrees/feature"),
+                },
+            ],
+        };
+        let runner = FakeGitRunner::new(vec![
+            output(0, "fsmonitor-daemon is watching '/old/project'\n", ""),
+            output(
+                1,
+                "",
+                "fsmonitor-daemon is not watching '/old/project/.worktrees/feature'\n",
+            ),
+        ]);
+
+        let stopped = stop_fsmonitor_daemons_for_move_with_runner(&plan, &runner).unwrap();
+
+        assert_eq!(stopped, vec![PathBuf::from("/old/project")]);
+        assert_eq!(
+            *runner.calls.borrow(),
+            vec![
+                (
+                    PathBuf::from("/old/project"),
+                    vec!["fsmonitor--daemon".to_string(), "status".to_string()],
+                ),
+                (
+                    PathBuf::from("/old/project"),
+                    vec!["fsmonitor--daemon".to_string(), "stop".to_string()],
+                ),
+                (
+                    PathBuf::from("/old/project/.worktrees/feature"),
+                    vec!["fsmonitor--daemon".to_string(), "status".to_string()],
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn fsmonitor_report_lines_explain_apply_will_stop_running_daemons() {
+        let report = GitFsmonitorReport {
+            checked_paths: vec![
+                PathBuf::from("/old/project"),
+                PathBuf::from("/old/project/.worktrees/feature"),
+            ],
+            running_paths: vec![PathBuf::from("/old/project")],
+            unsupported_paths: Vec::new(),
+        };
+
+        assert_eq!(
+            fsmonitor_report_lines(&report),
+            vec![
+                "Git fsmonitor: 1 running daemon(s); apply will stop them before moving"
+                    .to_string(),
+                "- Git fsmonitor daemon: /old/project".to_string(),
+            ]
+        );
+    }
 }

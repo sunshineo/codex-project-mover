@@ -158,6 +158,8 @@ V1 freeze notes:
 - Users can pass `--allow-running-codex` to bypass the process guard after they decide the detected process is unrelated to the move. This flag is deliberately explicit because concurrent Codex writes can race with metadata updates.
 - Process detection ignores known non-writing false positives such as Electron helper processes, crashpad handlers, extension hosts, `node_modules` dependency paths, and the mover process itself. The reason is that many local tools include `codex` in paths or command lines without sharing the `~/.codex` state being rewritten.
 - `codex exec` is treated as relevant even without a separate OS-level `codex app-server` process because it can load `CODEX_HOME`, initialize state DBs, and persist rollout files in-process.
+- `plan` reports Git fsmonitor daemons for worktrees that would move. Normal `apply` stops only those source worktree daemons with `git fsmonitor--daemon stop` before moving or copying, and does not restart them; Git restarts them later if `core.fsmonitor=true` still applies.
+- Folder copy verification skips non-copyable runtime filesystem entries such as sockets, FIFOs, and device files, matching the copy step.
 - The old folder is moved to macOS Trash after copy and metadata verification.
 - Backups are metadata backups under `~/.codex/codex-project-mover-backups/<id>` and include movement metadata for rollback cleanup.
 - Rollback restores metadata from backup and moves the tool-created new folder to Trash when applicable. `rollback --backup` accepts either the backup directory printed by `apply` or the manifest file inside it.

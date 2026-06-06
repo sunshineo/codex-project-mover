@@ -82,9 +82,11 @@ If you know the detected process is unrelated to the project being moved, pass `
 
 Because Codex should normally be fully closed during the move, you usually can't drive this tool from inside Codex itself. Run it from a plain terminal, or have a different AI coding assistant (such as Claude Code) run it for you. Use `--allow-running-codex` only when you have checked the reported processes and accept the risk.
 
-Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash.
+Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash. Copy verification skips non-copyable runtime filesystem entries such as sockets, FIFOs, and device files.
 
 When the project folder is a Git worktree root, `apply` automatically repairs Git worktree metadata. Main worktrees are copied and then repaired with `git worktree repair` before Codex metadata changes. Linked worktrees are moved with `git worktree move` instead of a generic filesystem copy. Codex paths should always point at the checkout root, not at `.git/worktrees/...` internals.
+
+For Git worktrees, `plan` also reports whether Git fsmonitor daemons are running for worktrees that would move. During normal `apply`, the tool stops only those source worktree daemons with `git fsmonitor--daemon stop` before moving or copying. It does not restart them; if `core.fsmonitor=true` remains configured, Git starts them again on the next relevant Git command.
 
 Relink-only mode is for folders already moved by the user. It requires the old path to be missing and the new path to exist.
 

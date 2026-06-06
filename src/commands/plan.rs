@@ -2,7 +2,8 @@ use anyhow::Result;
 
 use crate::cli::MoveArgs;
 use crate::git_worktree::{
-    build_plan_for_existing_project, linked_worktree_move_cwd, GitWorktreeKind,
+    build_plan_for_existing_project, fsmonitor_report_lines, inspect_fsmonitor_daemons_for_move,
+    linked_worktree_move_cwd, GitWorktreeKind,
 };
 use crate::pathing::{codex_home_from_arg, normalize_project_path};
 use crate::process_guard::{detect_codex_processes, render_process_report};
@@ -64,6 +65,11 @@ pub fn run(args: MoveArgs) -> Result<()> {
                 git_plan.new_project_path.display()
             );
         }
+    }
+
+    let fsmonitor_report = inspect_fsmonitor_daemons_for_move(&git_plan)?;
+    for line in fsmonitor_report_lines(&fsmonitor_report) {
+        println!("{line}");
     }
 
     for line in render_process_report(&detect_codex_processes(), args.allow_running_codex) {

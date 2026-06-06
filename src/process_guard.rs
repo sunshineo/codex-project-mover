@@ -67,11 +67,12 @@ pub fn render_process_report(matches: &[ProcessInfo], allow_running_codex: bool)
         matches.len(),
         consequence
     )];
-    lines.extend(
-        matches
-            .iter()
-            .map(|process| format!("- pid {}: {} {}", process.pid, process.name, process.command)),
-    );
+    lines.extend(matches.iter().map(|process| {
+        format!(
+            "- pid {}: {} {}",
+            process.pid, process.name, process.command
+        )
+    }));
     lines
 }
 

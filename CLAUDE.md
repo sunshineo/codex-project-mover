@@ -26,7 +26,7 @@ Run these steps in order:
 codex-project-mover plan --old /old/project --new /new/project
 ```
 
-Scans all supported Codex metadata surfaces and prints every reference that would be updated. Makes no changes. Also reports whether any Codex processes are running — without blocking — so the dry run previews the process-guard check that `apply` enforces. Review the output to confirm the right files are affected before proceeding.
+Scans all supported Codex metadata surfaces and prints every reference that would be updated. Makes no changes. Also reports whether any Git fsmonitor daemons and Codex processes are running — without blocking — so the dry run previews checks that `apply` handles. Review the output to confirm the right files are affected before proceeding.
 
 ### 2. Apply
 
@@ -35,8 +35,9 @@ codex-project-mover apply --old /old/project --new /new/project
 ```
 
 - Backs up all affected metadata files to `~/.codex/codex-project-mover-backups/<id>/`
+- Stops any Git fsmonitor daemon watching a source worktree that will move
 - Copies the project folder from old to new
-- Verifies the copy
+- Verifies the copy, ignoring non-copyable runtime entries such as sockets
 - Updates all supported metadata
 - Verifies old-path references are gone and new-path references are present
 - Moves the old folder to macOS Trash
