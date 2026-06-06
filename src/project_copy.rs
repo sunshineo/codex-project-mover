@@ -57,12 +57,20 @@ fn tree_fingerprints(root: &Path) -> Result<Vec<(PathBuf, String)>> {
             continue;
         }
 
-        let kind_hash = if entry.file_type().is_dir() {
+        let file_type = entry.file_type();
+        let kind_hash = if file_type.is_dir() {
             "dir".to_string()
-        } else if entry.file_type().is_symlink() {
+        } else if file_type.is_symlink() {
             format!("symlink:{}", fs::read_link(path)?.display())
-        } else {
+        } else if file_type.is_file() {
             format!("file:{}", sha256_file(path)?)
+        } else {
+            // Sockets, FIFOs, and device files can't be copied and are skipped
+            // by copy_project_tree (e.g. Git's .git/fsmonitor--daemon.ipc
+            // socket), so skip them here too. Otherwise verification would try
+            // to read a socket or report a phantom mismatch against a copy that
+            // intentionally omits it.
+            continue;
         };
         entries.push((relative, kind_hash));
     }

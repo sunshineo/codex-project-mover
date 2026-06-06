@@ -8,7 +8,7 @@ use crate::cli::ApplyArgs;
 use crate::git_worktree::{
     build_plan_for_existing_project, build_plan_for_relink_only, move_linked_worktree,
     repair_linked_worktree_after_manual_move, repair_main_worktree_after_copy,
-    verify_git_from_new_path, GitWorktreeKind,
+    stop_fsmonitor_daemons_for_move, verify_git_from_new_path, GitWorktreeKind,
 };
 use crate::pathing::{codex_home_from_arg, normalize_project_path};
 use crate::process_guard::assert_no_codex_processes;
@@ -58,6 +58,13 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     )?;
 
     if !args.relink_only {
+        if let Some(plan) = git_plan.as_ref() {
+            let stopped = stop_fsmonitor_daemons_for_move(plan)?;
+            if !stopped.is_empty() {
+                println!("Git fsmonitor stopped for {} worktree(s)", stopped.len());
+            }
+        }
+
         match git_plan.as_ref() {
             Some(plan) if plan.kind == GitWorktreeKind::LinkedWorktree => {
                 move_linked_worktree(plan)?;

@@ -19,3 +19,20 @@ fn copies_and_verifies_project_tree() {
         "fn main() {}\n"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn verifies_project_tree_ignores_git_fsmonitor_socket() {
+    let temp = tempdir().unwrap();
+    let old = temp.path().join("old-project");
+    let new = temp.path().join("new-project");
+    let socket = old.join(".git/fsmonitor--daemon.ipc");
+    fs::create_dir_all(socket.parent().unwrap()).unwrap();
+    fs::write(old.join("README.md"), "hello\n").unwrap();
+    let _listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+
+    copy_project_tree(&old, &new).unwrap();
+
+    assert!(!new.join(".git/fsmonitor--daemon.ipc").exists());
+    verify_project_tree(&old, &new).unwrap();
+}

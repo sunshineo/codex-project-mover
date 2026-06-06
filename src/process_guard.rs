@@ -18,12 +18,26 @@ impl ProcessInfo {
     }
 }
 
+const TEST_SKIP_GUARD_ENV: &str = "CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD";
+
+fn guard_skipped_for_tests() -> bool {
+    std::env::var(TEST_SKIP_GUARD_ENV).as_deref() == Ok("1")
+}
+
 pub fn assert_no_codex_processes(allow_running_codex: bool) -> Result<()> {
-    if std::env::var("CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD").as_deref() == Ok("1") {
+    if guard_skipped_for_tests() || allow_running_codex {
         return Ok(());
     }
-    if allow_running_codex {
-        return Ok(());
+    bail_on_codex_processes(&detect_codex_processes())
+}
+
+/// Scan the live system for Codex processes that could race with a move,
+/// returning the matches instead of failing. `plan` uses this to surface the
+/// condition in its dry-run report without blocking. Honors the test skip env
+/// var so dry-run output stays deterministic in tests.
+pub fn detect_codex_processes() -> Vec<ProcessInfo> {
+    if guard_skipped_for_tests() {
+        return Vec::new();
     }
 
     let current_pid = std::process::id();
@@ -31,7 +45,35 @@ pub fn assert_no_codex_processes(allow_running_codex: bool) -> Result<()> {
     system.refresh_all();
 
     let processes = collect_processes(&system);
-    assert_no_blocking_codex_processes(&processes, current_pid, false)
+    find_codex_processes(&processes, current_pid)
+}
+
+/// Build the lines `plan` prints for its dry-run Codex-process report. An empty
+/// slice yields the "none detected" status; otherwise a header stating what
+/// `apply` would do (refuse, or proceed under `--allow-running-codex`) followed
+/// by one line per detected process.
+pub fn render_process_report(matches: &[ProcessInfo], allow_running_codex: bool) -> Vec<String> {
+    if matches.is_empty() {
+        return vec!["Codex processes: none detected".to_string()];
+    }
+
+    let consequence = if allow_running_codex {
+        "--allow-running-codex is set, so apply would proceed"
+    } else {
+        "apply would refuse without --allow-running-codex"
+    };
+    let mut lines = vec![format!(
+        "Codex processes: {} running — {}",
+        matches.len(),
+        consequence
+    )];
+    lines.extend(matches.iter().map(|process| {
+        format!(
+            "- pid {}: {} {}",
+            process.pid, process.name, process.command
+        )
+    }));
+    lines
 }
 
 fn collect_processes(system: &System) -> Vec<ProcessInfo> {
@@ -75,8 +117,10 @@ pub fn assert_no_blocking_codex_processes(
     if allow_running_codex {
         return Ok(());
     }
+    bail_on_codex_processes(&find_codex_processes(processes, current_pid))
+}
 
-    let matches = find_codex_processes(processes, current_pid);
+fn bail_on_codex_processes(matches: &[ProcessInfo]) -> Result<()> {
     if matches.is_empty() {
         return Ok(());
     }

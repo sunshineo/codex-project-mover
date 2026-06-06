@@ -74,7 +74,7 @@ codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>/
 codex-project-mover rollback --backup ~/.codex/codex-project-mover-backups/<id>
 ```
 
-Close Codex before running commands. By default, the tool exits if it sees a Codex process that can plausibly read or write the same local `CODEX_HOME` state that this tool edits: the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. It does not stop or kill those processes.
+Close Codex before running commands. By default, `apply`, `verify`, and `rollback` exit if they see a Codex process that can plausibly read or write the same local `CODEX_HOME` state that this tool edits: the main Codex Desktop process, `codex app-server`, or a standalone `codex` CLI/`codex exec` process. They do not stop or kill those processes. `plan` is a read-only dry run, so it never exits on this check — it reports any detected processes at the end of its output (noting whether `apply` would refuse) and continues, so the dry run previews every issue a real run would hit.
 
 The guard is intentionally focused. `codex exec` can persist rollout files and initialize state databases in-process, so a separate `codex app-server` process is not the only risky shape. Electron helpers, crashpad handlers, extension hosts, and `node_modules` dependency paths are ignored to avoid false positives from tools that merely contain `codex` in a path or command line.
 
@@ -82,9 +82,11 @@ If you know the detected process is unrelated to the project being moved, pass `
 
 Because Codex should normally be fully closed during the move, you usually can't drive this tool from inside Codex itself. Run it from a plain terminal, or have a different AI coding assistant (such as Claude Code) run it for you. Use `--allow-running-codex` only when you have checked the reported processes and accept the risk.
 
-Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash.
+Normal `apply` backs up Codex metadata, copies the old folder to the new path, verifies the copy, updates supported metadata, verifies the old path is gone and new references are present, and moves the old folder to macOS Trash. Copy verification skips non-copyable runtime filesystem entries such as sockets, FIFOs, and device files.
 
 When the project folder is a Git worktree root, `apply` automatically repairs Git worktree metadata. Main worktrees are copied and then repaired with `git worktree repair` before Codex metadata changes. Linked worktrees are moved with `git worktree move` instead of a generic filesystem copy. Codex paths should always point at the checkout root, not at `.git/worktrees/...` internals.
+
+For Git worktrees, `plan` also reports whether Git fsmonitor daemons are running for worktrees that would move. During normal `apply`, the tool stops only those source worktree daemons with `git fsmonitor--daemon stop` before moving or copying. It does not restart them; if `core.fsmonitor=true` remains configured, Git starts them again on the next relevant Git command.
 
 Relink-only mode is for folders already moved by the user. It requires the old path to be missing and the new path to exist.
 
