@@ -63,6 +63,23 @@ fn ignores_codex_named_helpers_and_dependency_paths() {
 }
 
 #[test]
+fn ignores_codex_computer_use_helper_with_spaces_in_executable_path() {
+    // The Codex Computer Use helper lives in an app bundle whose path contains
+    // spaces ("Codex Computer Use.app"). Its real argv[0] basename is
+    // SkyComputerUseService, not codex, so it must not be flagged just because
+    // an earlier path segment happens to be "Codex". `with_executable` mirrors
+    // the precise argv[0] that collect_processes records for the live process.
+    let executable =
+        "/Users/gordon/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService";
+    let processes = vec![ProcessInfo::new(30, "SkyComputerUseService", executable)
+        .with_executable(executable)];
+
+    let matches = find_codex_processes(&processes, 99);
+
+    assert!(matches.is_empty());
+}
+
+#[test]
 fn excludes_current_mover_process() {
     let processes = vec![ProcessInfo::new(
         22,

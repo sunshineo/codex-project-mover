@@ -5,16 +5,34 @@ use sysinfo::System;
 pub struct ProcessInfo {
     pub pid: u32,
     pub name: String,
+    /// The executable (argv[0]) kept whole, so a path containing spaces (e.g. a
+    /// macOS app bundle) is never mistaken for several tokens during detection.
+    pub executable: String,
     pub command: String,
 }
 
 impl ProcessInfo {
     pub fn new(pid: u32, name: impl Into<String>, command: impl Into<String>) -> Self {
+        let command = command.into();
+        // Best-effort default for synthetic/test data: the first
+        // whitespace-delimited token. Real processes overwrite this with the
+        // precise argv[0] via `with_executable`.
+        let executable = command
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_string();
         Self {
             pid,
             name: name.into(),
-            command: command.into(),
+            executable,
+            command,
         }
+    }
+
+    pub fn with_executable(mut self, executable: impl Into<String>) -> Self {
+        self.executable = executable.into();
+        self
     }
 }
 
@@ -89,7 +107,16 @@ fn collect_processes(system: &System) -> Vec<ProcessInfo> {
                 .collect::<Vec<_>>()
                 .join(" ");
 
+            // argv[0] is the executable as a single unit; keep it intact so a
+            // path with spaces survives instead of being split on them.
+            let executable = process
+                .cmd()
+                .first()
+                .map(|part| part.to_string_lossy().into_owned())
+                .unwrap_or_default();
+
             ProcessInfo::new(pid.as_u32(), process.name().to_string_lossy(), command)
+                .with_executable(executable)
         })
         .collect()
 }
@@ -160,8 +187,7 @@ fn is_main_desktop_process(process: &ProcessInfo) -> bool {
 }
 
 fn is_app_server_process(process: &ProcessInfo) -> bool {
-    command_executable_basename(&process.command)
-        .is_some_and(|name| name.eq_ignore_ascii_case("codex"))
+    executable_basename(&process.executable).eq_ignore_ascii_case("codex")
         && command_words(&process.command)
             .iter()
             .any(|word| word.eq_ignore_ascii_case("app-server"))
@@ -174,14 +200,11 @@ fn is_standalone_codex_cli_process(process: &ProcessInfo) -> bool {
     }
 
     process.name.eq_ignore_ascii_case("codex")
-        || command_executable_basename(&process.command)
-            .is_some_and(|name| name.eq_ignore_ascii_case("codex"))
+        || executable_basename(&process.executable).eq_ignore_ascii_case("codex")
 }
 
-fn command_executable_basename(command: &str) -> Option<&str> {
-    command_words(command)
-        .first()
-        .and_then(|executable| executable.rsplit(['/', '\\']).next())
+fn executable_basename(executable: &str) -> &str {
+    executable.rsplit(['/', '\\']).next().unwrap_or(executable)
 }
 
 fn command_words(command: &str) -> Vec<&str> {
