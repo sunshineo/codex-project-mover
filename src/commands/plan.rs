@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use serde::Serialize;
 
 use crate::app_error::{AppResult, ExitCode, ResultExitCodeExt};
@@ -170,10 +172,10 @@ pub fn run(args: MoveArgs, output_mode: OutputMode) -> AppResult<()> {
                 );
             }
             let repair_paths = git_plan.repair_paths();
-            let repair_path_args = repair_paths
-                .iter()
-                .map(|path| format!(" {}", path.display()))
-                .collect::<String>();
+            let repair_path_args = repair_paths.iter().fold(String::new(), |mut output, path| {
+                write!(&mut output, " {}", path.display()).expect("write to string");
+                output
+            });
             println!(
                 "Git repair: git -C {} worktree repair{}",
                 git_plan.new_project_path.display(),
