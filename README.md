@@ -130,7 +130,27 @@ This repository includes a Claude Code plugin at
 `/codex-project-mover:move-codex-project` skill, which guides Claude Code
 through `plan`, `apply`, `verify`, and `rollback` using `--json`.
 
-For local testing from a checkout:
+The skill expects the `codex-project-mover` binary to be available on `PATH`:
+
+```bash
+codex-project-mover --version
+```
+
+To install the plugin through Claude Code's normal `/plugin` flow, first add
+this repository as a marketplace:
+
+```text
+/plugin marketplace add sunshineo/codex-project-mover
+/plugin install codex-project-mover@codex-project-mover
+```
+
+Then run the skill:
+
+```text
+/codex-project-mover:move-codex-project
+```
+
+For direct local development from a checkout:
 
 ```bash
 claude --plugin-dir ./claude-code/plugins/codex-project-mover
