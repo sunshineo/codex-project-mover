@@ -9,7 +9,7 @@
       "name": "codex-project-mover",
       "source": "./claude-code/plugins/codex-project-mover",
       "description": "Safely move or relink Codex Desktop project folders while preserving local Codex conversations.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": {
         "name": "codex-project-mover maintainers"
       }
