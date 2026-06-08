@@ -2,13 +2,46 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  rust:
+    name: Rust
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test
-      - run: cargo build --release
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.85.0
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test
+
+      - name: Git worktree tests with release temp dir
+        run: |
+          mkdir -p /tmp/codex-project-mover-release
+          TMPDIR=/tmp/codex-project-mover-release cargo test --test git_worktree
+
+      - name: Locked release build
+        run: cargo build --release --locked
+
+      - name: Version smoke test
+        run: ./target/release/codex-project-mover --version

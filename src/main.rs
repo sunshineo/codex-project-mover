@@ -1,6 +1,10 @@
 fn main() {
-    if let Err(error) = codex_project_mover::run() {
-        eprintln!("error: {error:#}");
-        std::process::exit(1);
+    if let Err(failure) = codex_project_mover::run() {
+        if failure.json {
+            codex_project_mover::print_json_error(&failure.error);
+        } else {
+            eprintln!("error: {}", failure.error);
+        }
+        std::process::exit(failure.error.exit_code().code());
     }
 }

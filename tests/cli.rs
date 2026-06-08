@@ -1,6 +1,14 @@
 use assert_cmd::Command;
+use predicates::prelude::*;
 use predicates::str::contains;
-use std::{fs, path::Path, process::Command as StdCommand};
+use serde_json::Value;
+use std::{
+    fs,
+    path::Path,
+    process::{Child, Command as StdCommand},
+    thread,
+    time::Duration,
+};
 use tempfile::tempdir;
 
 fn mover() -> Command {
@@ -50,6 +58,13 @@ fn init_repo(path: &Path) {
     fs::write(path.join("README.md"), "hello\n").unwrap();
     git(path, &["add", "README.md"]);
     git(path, &["commit", "-m", "initial"]);
+}
+
+fn spawn_fake_codex_process() -> Child {
+    StdCommand::new("bash")
+        .args(["-c", "exec -a codex sleep 30"])
+        .spawn()
+        .unwrap()
 }
 
 #[test]
@@ -224,7 +239,262 @@ fn apply_relink_only_fails_when_old_exists() {
         ])
         .assert()
         .failure()
+        .code(4)
         .stderr(contains("relink-only requires old path to not exist"));
+}
+
+#[test]
+fn verify_old_references_exit_with_verification_code() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    fs::write(
+        home.join("sessions/thread.jsonl"),
+        r#"{"cwd":"/old/project"}"#,
+    )
+    .unwrap();
+
+    mover()
+        .args([
+            "verify",
+            "--old",
+            "/old/project",
+            "--new",
+            "/new/project",
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .assert()
+        .code(8)
+        .stderr(contains(
+            "verification failed: 1 old-path reference remains",
+        ));
+}
+
+#[test]
+fn process_guard_failure_exits_with_process_guard_code() {
+    let mut fake_codex = spawn_fake_codex_process();
+    thread::sleep(Duration::from_millis(250));
+
+    let assert = Command::cargo_bin("codex-project-mover")
+        .unwrap()
+        .env_remove("CODEX_PROJECT_MOVER_TEST_SKIP_PROCESS_GUARD")
+        .args([
+            "apply",
+            "--old",
+            "/old/project",
+            "--new",
+            "/new/project",
+            "--codex-home",
+            "/tmp/codex-project-mover-test-home",
+        ])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains(
+            "Codex-related processes are running",
+        ));
+
+    let _ = assert;
+    let _ = fake_codex.kill();
+    let _ = fake_codex.wait();
+}
+
+#[test]
+fn plan_json_reports_supported_references() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    fs::write(
+        home.join("sessions/thread.jsonl"),
+        r#"{"cwd":"/old/project"}"#,
+    )
+    .unwrap();
+
+    let output = mover()
+        .args([
+            "--json",
+            "plan",
+            "--old",
+            "/old/project",
+            "--new",
+            "/new/project",
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let json: Value = serde_json::from_slice(&output).unwrap();
+
+    assert_eq!(json["command"], "plan");
+    assert_eq!(json["status"], "ok");
+    assert_eq!(json["old_path"], "/old/project");
+    assert_eq!(json["new_path"], "/new/project");
+    assert_eq!(json["old_reference_count"], 1);
+    assert_eq!(json["references"][0]["surface"], "jsonl_cwd");
+}
+
+#[test]
+fn verify_json_reports_success_counts() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    fs::write(
+        home.join("sessions/thread.jsonl"),
+        r#"{"cwd":"/new/project"}"#,
+    )
+    .unwrap();
+
+    let output = mover()
+        .args([
+            "--json",
+            "verify",
+            "--old",
+            "/old/project",
+            "--new",
+            "/new/project",
+            "--codex-home",
+            home.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let json: Value = serde_json::from_slice(&output).unwrap();
+
+    assert_eq!(json["command"], "verify");
+    assert_eq!(json["status"], "ok");
+    assert_eq!(json["old_reference_count"], 0);
+    assert_eq!(json["new_reference_count"], 1);
+}
+
+#[test]
+fn apply_relink_only_json_reports_backup_and_changed_count() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    let new = temp.path().join("new-project");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    fs::create_dir_all(&new).unwrap();
+    fs::write(
+        home.join("sessions/thread.jsonl"),
+        r#"{"cwd":"/old/project"}"#,
+    )
+    .unwrap();
+
+    let output = mover()
+        .args([
+            "--json",
+            "apply",
+            "--old",
+            "/old/project",
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+            "--relink-only",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let json: Value = serde_json::from_slice(&output).unwrap();
+
+    assert_eq!(json["command"], "apply");
+    assert_eq!(json["status"], "ok");
+    assert_eq!(json["changed_reference_count"], 1);
+    assert!(json["backup_dir"]
+        .as_str()
+        .unwrap()
+        .contains("codex-project-mover-backups"));
+    assert_eq!(json["rollback"]["status"], "not_needed");
+}
+
+#[test]
+fn json_failure_reports_exit_code_and_message() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    fs::create_dir_all(&home).unwrap();
+    let old = temp.path().join("old-project");
+    let new = temp.path().join("new-project");
+    fs::create_dir_all(&old).unwrap();
+    fs::create_dir_all(&new).unwrap();
+
+    let output = mover()
+        .args([
+            "--json",
+            "apply",
+            "--old",
+            old.to_str().unwrap(),
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+            "--relink-only",
+        ])
+        .assert()
+        .code(4)
+        .get_output()
+        .stderr
+        .clone();
+    let json: Value = serde_json::from_slice(&output).unwrap();
+
+    assert_eq!(json["status"], "error");
+    assert_eq!(json["exit_code"], 4);
+    assert_eq!(json["error_kind"], "path_validation");
+    assert!(json["message"]
+        .as_str()
+        .unwrap()
+        .contains("relink-only requires old path to not exist"));
+}
+
+#[test]
+fn apply_auto_rollback_restores_metadata_after_verification_failure() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join(".codex");
+    let new = temp.path().join("new-project");
+    let thread = home.join("sessions/thread.jsonl");
+    fs::create_dir_all(home.join("sessions")).unwrap();
+    fs::create_dir_all(&new).unwrap();
+    fs::write(&thread, r#"{"cwd":"/old/project"}"#).unwrap();
+
+    let output = mover()
+        .env(
+            "CODEX_PROJECT_MOVER_TEST_FORCE_POST_UPDATE_VERIFICATION_FAILURE",
+            "1",
+        )
+        .args([
+            "--json",
+            "apply",
+            "--old",
+            "/old/project",
+            "--new",
+            new.to_str().unwrap(),
+            "--codex-home",
+            home.to_str().unwrap(),
+            "--relink-only",
+            "--auto-rollback",
+        ])
+        .assert()
+        .code(8)
+        .get_output()
+        .stderr
+        .clone();
+    let json: Value = serde_json::from_slice(&output).unwrap();
+
+    assert_eq!(json["status"], "error");
+    assert_eq!(json["error_kind"], "verification");
+    assert_eq!(json["rollback"]["status"], "succeeded");
+    assert!(json["message"]
+        .as_str()
+        .unwrap()
+        .contains("automatic rollback succeeded"));
+    assert!(fs::read_to_string(thread)
+        .unwrap()
+        .contains(r#""cwd":"/old/project""#));
 }
 
 #[test]

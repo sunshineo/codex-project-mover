@@ -6,7 +6,8 @@ maintenance less surprising.
 
 ## Current Policy
 
-- The upstream CLI version remains `1.0.0` for Homebrew-only packaging changes.
+- The upstream CLI version remains `1.1.0` for Homebrew-only packaging changes
+  after the `v1.1.0` release is published.
 - The tap formula lives in the public `sunshineo/homebrew-tap` repository.
 - The formula supports Apple Silicon macOS only:
   - `depends_on arch: :arm64`
@@ -141,14 +142,14 @@ On a newer Apple Silicon macOS machine, confirm the reinstall pours the Sonoma
 bottle:
 
 ```text
-Pouring codex-project-mover-1.0.0.arm64_sonoma.bottle.1.tar.gz
+Pouring codex-project-mover-1.1.0.arm64_sonoma.bottle.1.tar.gz
 ```
 
 Then inspect the install receipt:
 
 ```bash
 jq '{built_as_bottle, poured_from_bottle, runtime_dependencies, built_on}' \
-  /opt/homebrew/Cellar/codex-project-mover/1.0.0/INSTALL_RECEIPT.json
+  /opt/homebrew/Cellar/codex-project-mover/1.1.0/INSTALL_RECEIPT.json
 ```
 
 Expected high-level result:
@@ -279,7 +280,7 @@ rewrite history; publish a fixed follow-up release.
 
 Publishing or changing Homebrew bottle metadata does not require a new upstream
 `codex-project-mover` version. Keep the formula pointed at the immutable
-`v1.0.0` source tarball unless source behavior, package metadata, or upstream
+`v1.1.0` source tarball unless source behavior, package metadata, or upstream
 release artifacts need a new project release.
 
 Use a new upstream version when the CLI itself changes. Use bottle rebuilds and

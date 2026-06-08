@@ -31,19 +31,7 @@ pub fn update_automation_db(path: &Path, old: &str, new: &str) -> Result<usize> 
     let conn = Connection::open(path)?;
     let mut changed = 0;
     for table in tables_with_cwds(&conn)? {
-        let select_sql = format!(
-            "SELECT id, cwds FROM {} WHERE cwds IS NOT NULL",
-            quote_identifier(&table)
-        );
-        let rows = {
-            let mut stmt = conn.prepare(&select_sql)?;
-            let rows = stmt
-                .query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })?
-                .collect::<Result<Vec<_>, _>>()?;
-            rows
-        };
+        let rows = select_cwds_rows(&conn, &table)?;
         for (id, cwds) in rows {
             if let Some(updated) = replace_cwds_value(&cwds, old, new) {
                 let update_sql = format!(
@@ -56,6 +44,18 @@ pub fn update_automation_db(path: &Path, old: &str, new: &str) -> Result<usize> 
         }
     }
     Ok(changed)
+}
+
+fn select_cwds_rows(conn: &Connection, table: &str) -> Result<Vec<(String, String)>> {
+    let select_sql = format!(
+        "SELECT id, cwds FROM {} WHERE cwds IS NOT NULL",
+        quote_identifier(table)
+    );
+    let mut stmt = conn.prepare(&select_sql)?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
 fn collect_cwds_matches(

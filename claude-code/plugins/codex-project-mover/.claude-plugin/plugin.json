@@ -1,0 +1,10 @@
+{
+  "name": "codex-project-mover",
+  "description": "Claude Code workflow for safely moving Codex Desktop projects while Codex is closed.",
+  "version": "1.1.0",
+  "author": {
+    "name": "codex-project-mover maintainers"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/sunshineo/codex-project-mover"
+}

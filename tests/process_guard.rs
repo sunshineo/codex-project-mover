@@ -71,8 +71,8 @@ fn ignores_codex_computer_use_helper_with_spaces_in_executable_path() {
     // the precise argv[0] that collect_processes records for the live process.
     let executable =
         "/Users/gordon/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService";
-    let processes = vec![ProcessInfo::new(30, "SkyComputerUseService", executable)
-        .with_executable(executable)];
+    let processes =
+        vec![ProcessInfo::new(30, "SkyComputerUseService", executable).with_executable(executable)];
 
     let matches = find_codex_processes(&processes, 99);
 
