@@ -60,9 +60,19 @@ Codex processes are detected.
    codex-project-mover --json verify --old "$OLD" --new "$NEW" 2>&1
    ```
 
+   **Non-Codex folders (0 references):** if step 3 showed `old_reference_count`
+   equal to 0, the move was a plain folder move and `verify` is not meaningful —
+   it will fail with exit `8` and `message` "no supported new-path references
+   found". That is an expected false-negative, not a move failure. Either skip
+   this step for 0-reference moves, or treat that specific `verify` error as
+   success, confirming the move instead from `apply` (exit 0 with
+   `rollback.status` of "not_needed") plus the old folder being gone and the new
+   folder present. Do not roll back.
+
 7. On success, preserve the backup path from the `backup_dir` / `backup_manifest`
-   fields. If apply or verify reports an error, inspect `exit_code`,
-   `error_kind`, and `message`. A `rollback` object is present only when
+   fields. If apply or verify reports an error (other than the expected
+   0-reference `verify` case above), inspect `exit_code`, `error_kind`, and
+   `message`. A `rollback` object is present only when
    `apply --auto-rollback` hits a post-update verification failure (exit `8`);
    other failures (e.g. exit `6` or `7`) may not include a backup path. If
    automatic rollback did not run or failed and you have a backup manifest,
