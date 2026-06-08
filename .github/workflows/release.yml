@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  apple-silicon:
+    name: Apple Silicon macOS
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.85.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify tag checkout
+        run: git describe --exact-match --tags HEAD
+
+      - name: Build artifact
+        run: cargo build --release --locked
+
+      - name: Package artifact
+        run: |
+          test "$(uname -m)" = "arm64"
+          mkdir -p dist
+          cp target/release/codex-project-mover dist/codex-project-mover-aarch64-apple-darwin
+          file dist/codex-project-mover-aarch64-apple-darwin
+          ./dist/codex-project-mover-aarch64-apple-darwin --version
+          (
+            cd dist
+            shasum -a 256 codex-project-mover-aarch64-apple-darwin > codex-project-mover-aarch64-apple-darwin.sha256
+            shasum -a 256 -c codex-project-mover-aarch64-apple-darwin.sha256
+          )
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/codex-project-mover-aarch64-apple-darwin
+            dist/codex-project-mover-aarch64-apple-darwin.sha256

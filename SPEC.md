@@ -119,20 +119,22 @@ Mac-first v1:
 - Support relink-only mode for cases where the user already moved the folder.
 - Support `--version`.
 - Support rollback from either a backup directory or its `manifest.json`.
+- Support machine-readable `--json` output.
+- Support detailed exit codes for process guard, validation, backup, move,
+  metadata update, verification, and rollback failures.
+- Support `apply --auto-rollback` for post-update verification failures.
+- Support a Claude Code plugin and skill as the primary assisted interface.
 
 Out of scope for v1:
 
 - Windows/Linux support.
 - A GUI.
-- An installed Codex skill as the primary interface.
 - Cloud/project sync behavior beyond local Codex Desktop state.
 - Editing arbitrary old-path text inside user messages.
 
 Post-v1 CLI considerations:
 
-- Machine-readable output, such as `--json`, can be added later if scripts need stable structured output. v1 output is human-oriented; scripts should rely on exit status.
 - Global options such as top-level `--codex-home` can be considered later. v1 keeps options on each subcommand.
-- Detailed exit-code taxonomy can be considered later. v1 uses success vs failure.
 
 V1 freeze notes:
 
